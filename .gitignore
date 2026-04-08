@@ -36,3 +36,13 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # tools
 *.exe
 seed_data.py
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Optional: Ignore local environment folders if you use them
+venv/
+.env
