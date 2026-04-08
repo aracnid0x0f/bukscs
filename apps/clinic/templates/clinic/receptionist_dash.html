@@ -1,85 +1,261 @@
-{% extends 'base.html' %}
-
-{% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="text-center mb-12">
-        <h2 class="text-4xl font-black text-slate-900 tracking-tight mb-4">Patient Finder</h2>
-        <p class="text-slate-500 font-medium">Search by BUK Reg Number or 6-digit Clinic ID</p>
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Receptionist Portal | BUK Smart Clinic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00647c",
+                        "primary-container": "#007f9d",
+                        "tertiary": "#b02518",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-low": "#f2f4f6",
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
         
-        <form method="GET" class="mt-8 relative max-w-2xl mx-auto">
-            <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-cyan-500 w-6 h-6"></i>
-            <input type="text" name="search" value="{{ query }}" 
-                   placeholder="e.g. 19/COM/1234 or 552143"
-                   class="w-full pl-14 pr-4 py-5 rounded-3xl border-0 bg-white shadow-2xl shadow-cyan-100 focus:ring-4 focus:ring-cyan-100 transition-all text-lg font-bold placeholder:text-slate-300">
-            <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 bg-cyan-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-cyan-700 transition shadow-lg shadow-cyan-200">
-                Search
-            </button>
-        </form>
-    </div>
+        /* Smooth fade-out animation */
+        .django-message {
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .message-hidden {
+            opacity: 0;
+            transform: translateX(20px);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-[#f7f9fb] text-[#191c1e]">
 
-    {% if patient %}
-    <div class="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div class="bg-cyan-900 p-8 text-white flex justify-between items-center">
-            <div>
-                <p class="text-cyan-300 text-xs font-black uppercase tracking-widest mb-1">Verified Student Record</p>
-                <h3 class="text-3xl font-bold">
-                    <span class="text-cyan-200 uppercase">{{ patient.last_name }}</span>, {{ patient.first_name }}
-                </h3>
-            </div>
-            <div class="text-right">
-                <span class="block text-xs font-mono text-cyan-300">CLINIC ID</span>
-                <span class="text-2xl font-black font-mono tracking-tighter">#{{ patient.clinic_code }}</span>
-            </div>
-        </div>
+<div id="alert-container" class="fixed top-20 right-8 z-50 w-full max-w-sm space-y-4">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="django-message p-4 rounded-2xl shadow-xl flex items-start justify-between border backdrop-blur-md 
+                {% if message.tags == 'error' %} bg-red-50/90 border-red-200 text-red-800 {% else %} bg-cyan-50/90 border-cyan-200 text-cyan-800 {% endif %}">
+                
+                <div class="flex items-center space-x-3">
+                    <span class="material-symbols-outlined text-xl">
+                        {% if message.tags == 'error' %}report{% else %}info{% endif %}
+                    </span>
+                    <p class="text-sm font-bold">{{ message }}</p>
+                </div>
 
-        <div class="p-8 grid grid-cols-2 gap-8">
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registration Number</label>
-                    <p class="font-bold text-slate-700">{{ patient.reg_number }}</p>
-                </div>
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label>
-                    <p class="font-bold text-slate-700">{{ patient.department }}</p>
-                </div>
-            </div>
-            <div class="space-y-4 text-right">
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faculty</label>
-                    <p class="font-bold text-slate-700">{{ patient.faculty }}</p>
-                </div>
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender / Age</label>
-                    <p class="font-bold text-slate-700">{{ patient.gender }} / {{ patient.age }} yrs</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="px-8 py-6 bg-slate-50 border-t border-slate-100 flex gap-4">
-            <form action="{% url 'check_in_patient' patient.id %}" method="POST" class="flex-1 flex gap-3">
-                {% csrf_token %}
-                <select name="priority" class="bg-white border-slate-200 rounded-xl px-4 text-sm font-bold focus:ring-cyan-500">
-                    <option value="1">Normal Priority</option>
-                    <option value="2">Urgent</option>
-                    <option value="3">Emergency</option>
-                </select>
-                <button type="submit" class="flex-1 bg-cyan-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-cyan-700 transition flex items-center justify-center">
-                    Initiate Clinical Flow <i data-lucide="arrow-right" class="ml-2 w-4 h-4"></i>
+                <button onclick="dismissAlert(this.parentElement)" class="ml-4 text-slate-400 hover:text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-lg font-bold">close</span>
                 </button>
-            </form>
-        </div>
-    </div>
-    {% elif query %}
-    <div class="text-center py-12 bg-white rounded-[2rem] border-2 border-dashed border-slate-200">
-        <div class="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i data-lucide="user-plus" class="text-slate-400 w-8 h-8"></i>
-        </div>
-        <h4 class="text-xl font-bold text-slate-900">No Record Found</h4>
-        <p class="text-slate-500 mb-6">The student with ID "{{ query }}" is not in the system yet.</p>
-        <a href="{% url 'register_student' %}" class="inline-flex items-center bg-teal-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-teal-700 transition">
-            Register New Student
-        </a>
-    </div>
+            </div>
+        {% endfor %}
     {% endif %}
 </div>
-{% endblock %}
+
+<header class="fixed top-0 left-0 right-0 z-40 bg-white/70 backdrop-blur-md border-b border-cyan-500/10 flex justify-center h-16">
+    <div class="w-full max-w-[1200px] flex justify-between items-center px-8">
+        <div class="flex items-center space-x-4">
+            <div class="flex flex-col">
+                <span class="text-sm font-black text-cyan-800 font-headline leading-tight">BUK Smart Clinic</span>
+                <span class="text-[10px] text-cyan-600 font-medium">Cyan-Tech Edition</span>
+            </div>
+            <div class="h-6 w-px bg-cyan-200 mx-2"></div>
+            <span class="text-lg font-black text-cyan-800 font-headline">Receptionist Portal</span>
+        </div>
+        
+        <div class="flex items-center space-x-6">
+            <button onclick="location.href='#'" class="relative group">
+                <span class="material-symbols-outlined text-slate-500 group-hover:bg-slate-100 rounded-full p-2 transition-all">notifications</span>
+                <span class="absolute top-2 right-2 w-2 h-2 bg-tertiary rounded-full"></span>
+            </button>
+            <div class="flex items-center space-x-3 bg-cyan-100/50 px-4 py-2 rounded-full border border-cyan-200/50">
+                <div class="w-7 h-7 rounded-full bg-cyan-600 flex items-center justify-center text-white text-[10px] font-bold">
+                    {{ user.first_name|first }}{{ user.last_name|first }}
+                </div>
+                <span class="text-xs font-bold text-cyan-900">{{ user.get_full_name|default:user.username }}</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="pt-16 min-h-screen">
+    <div class="w-full h-12 sticky top-16 bg-cyan-50 z-30 flex items-center justify-center border-t border-cyan-100">
+        <div class="flex items-center space-x-2 text-cyan-700 font-bold border-b-2 border-cyan-700 h-full font-mono text-xs uppercase tracking-widest px-4">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+            <span>Reception Desk</span>
+        </div>
+    </div>
+
+    <div class="p-8 max-w-[1200px] mx-auto">
+        <div class="flex flex-col items-center justify-center mt-8 mb-16">
+            <h2 class="text-3xl font-headline font-extrabold text-cyan-900 mb-6 tracking-tight">Search Student Database</h2>
+            <form method="GET" action="{% url 'receptionist_dashboard' %}" class="w-full max-w-2xl relative">
+                <div class="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+                    <span class="material-symbols-outlined text-cyan-600">search</span>
+                </div>
+                <input name="q" value="{{ request.GET.q }}" class="w-full py-4 pl-16 pr-6 bg-white border-none rounded-full text-lg font-mono focus:ring-2 focus:ring-primary/40 shadow-sm" placeholder="Enter Reg. Number (e.g. CST/18/SWE/00492)" type="text" required/>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div class="md:col-span-8 bg-white rounded-[2rem] p-8 shadow-sm relative overflow-hidden border border-slate-100">
+                {% if patient %}
+                <div class="absolute top-0 right-0 p-8">
+                    <span class="px-4 py-1 {% if patient.is_active %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %} rounded-full text-xs font-bold uppercase tracking-widest">
+                        {{ patient.get_status_display|default:"Active Record" }}
+                    </span>
+                </div>
+                <div class="flex items-start space-x-8">
+                    <div class="relative">
+                        <div class="w-32 h-32 rounded-3xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+                            {% if patient.photo %}
+                                <img src="{{ patient.photo.url }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <span class="material-symbols-outlined text-5xl text-slate-300">person</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-3xl font-headline text-cyan-950 mb-1">
+                            <span class="font-extrabold">{{ patient.last_name|upper }}</span> {{ patient.first_name }}
+                        </h3>
+                        <p class="font-mono text-cyan-600 text-lg mb-6">{{ patient.reg_number }}</p>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <div class="bg-slate-50 p-4 rounded-2xl">
+                                <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Faculty</p>
+                                <p class="text-sm font-semibold">{{ patient.faculty|default:"N/A" }}</p>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-2xl">
+                                <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Department</p>
+                                <p class="text-sm font-semibold">{{ patient.department|default:"N/A" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4">
+                            <form action="{% url 'generate_ticket' patient.id %}" method="POST" class="flex-1">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full bg-primary text-white py-4 px-6 rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-primary-container transition-all shadow-lg shadow-primary/10">
+                                    <span class="material-symbols-outlined">confirmation_number</span>
+                                    <span>Check-in Patient</span>
+                                </button>
+                            </form>
+                            <button onclick="location.href='{% url 'patient_history' patient.id %}'" class="px-6 py-4 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition-all">
+                                <span class="material-symbols-outlined">history</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex flex-col items-center justify-center h-64 text-slate-400">
+                    <span class="material-symbols-outlined text-6xl mb-4">person_search</span>
+                    <p class="font-medium">No patient selected. Search by ID to begin check-in.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="md:col-span-4 space-y-6">
+                <div class="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+                    <h4 class="text-cyan-900 font-bold text-sm mb-4 uppercase tracking-tight flex items-center">
+                        <span class="material-symbols-outlined mr-2 text-lg">groups</span>
+                        Queue Status
+                    </h4>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-600">Pending Vitals</span>
+                            <span class="font-mono text-sm font-bold text-cyan-700">{{ queue_stats.nurse_count|default:"0" }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-600">Awaiting Consultation</span>
+                            <span class="font-mono text-sm font-bold text-cyan-700">{{ queue_stats.doctor_count|default:"0" }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form action="{% url 'emergency_protocol' %}" method="POST" class="w-full">
+                    {% csrf_token %}
+                    {% if patient %}
+                        <input type="hidden" name="patient_id" value="{{ patient.id }}">
+                    {% endif %}
+                    <button type="submit" class="w-full bg-tertiary text-white p-6 rounded-[2rem] shadow-lg shadow-tertiary/20 flex items-center space-x-4 hover:scale-[1.02] transition-transform">
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <span class="material-symbols-outlined">emergency</span>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-bold text-sm uppercase">Emergency</p>
+                            <p class="text-[10px] opacity-80">
+                                {% if patient %}Fast-track {{ patient.first_name }}{% else %}General System Alert{% endif %}
+                            </p>
+                        </div>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <section class="mt-12 mb-20">
+            <h3 class="text-xl font-headline font-bold text-cyan-900 mb-6 px-2">Recent Check-ins</h3>
+            <div class="space-y-3">
+                {% for visit in recent_visits %}
+                <div onclick="location.href='{% url 'visit_detail' visit.id %}'" class="bg-white p-4 rounded-2xl flex items-center justify-between hover:border-cyan-200 border border-transparent transition-all cursor-pointer shadow-sm group">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-10 h-10 bg-cyan-50 rounded-full flex items-center justify-center text-cyan-700 font-bold text-xs">
+                            {{ visit.patient.first_name|first }}{{ visit.patient.last_name|first }}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">{{ visit.patient.get_full_name }}</p>
+                            <p class="text-[10px] font-mono text-slate-400">{{ visit.patient.reg_number }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-8">
+                        <div class="text-right">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Ticket</p>
+                            <p class="text-xs font-mono font-medium">#{{ visit.ticket_number|default:visit.id }}</p>
+                        </div>
+                        <span class="material-symbols-outlined text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-10 text-slate-400 text-sm">No check-ins recorded today.</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+    function dismissAlert(element) {
+        element.classList.add('message-hidden');
+        setTimeout(() => {
+            element.remove();
+        }, 500);
+    }
+
+    // Handle auto-dismissal
+    document.addEventListener('DOMContentLoaded', () => {
+        const alerts = document.querySelectorAll('.django-message');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                if (alert && alert.parentNode) {
+                    dismissAlert(alert);
+                }
+            }, 3000); // 3 seconds
+        });
+    });
+</script>
+
+</body>
+</html>

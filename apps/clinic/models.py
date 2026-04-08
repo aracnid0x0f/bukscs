@@ -62,6 +62,7 @@ class Encounter(models.Model):
         LABORATORY = "LAB", "In Laboratory"
         PHARMACY = "PHARMACY", "Awaiting Medication"
         CLOSED = "CLOSED", "Completed"
+        EMERGENCY = "EMERGENCY", "Emergency Case"
 
     # Linking the Ticket to the File
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="encounters")

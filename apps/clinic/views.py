@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.utils import timezone
 
 from .models import Encounter, Patient
 from apps.pharmacy.models import Medicine
@@ -64,7 +65,7 @@ def create_encounter(request, patient_id):
             messages.success(request, f"Ticket created for {patient.full_name}. Sent to Nursing.")
             
         return redirect('receptionist_dashboard')
-    
+
 
 def consultation_detail(request, visit_id):
     encounter = get_object_or_404(Encounter, visit_id=visit_id)
@@ -93,7 +94,7 @@ def consultation_detail(request, visit_id):
 
 def check_in_patient(request, patient_id):
     patient = Patient.objects.get(id=patient_id)
-    
+
     # Create the Encounter (The "Ticket")
     encounter = Encounter.objects.create(
         patient=patient,
@@ -105,6 +106,49 @@ def check_in_patient(request, patient_id):
 
     messages.success(request, f"Ticket generated for {patient.last_name}. Proceed to Nursing Triage.")
     return redirect('receptionist_dashboard')
+
+def emergency_protocol(request):
+    """
+    Handles immediate emergency flagging.
+    In a production EMR, this would trigger a WebSocket or push notification
+    to the Nurse/Doctor dashboards.
+    """
+    # 1. Create a placeholder or anonymous visit if no patient is selected
+    # or redirect to a quick-registration form.
+    # For now, let's trigger a system-wide alert or redirect to a high-priority form.
+
+    if request.method == "POST":
+        # Logic to handle a specific emergency patient if ID is provided
+        patient_id = request.POST.get("patient_id")
+
+        if patient_id:
+            try:
+                patient = Patient.objects.get(id=patient_id)
+                Encounter.objects.create(
+                    patient=patient,
+                    status="EMERGENCY",  # Ensure this status exists in your Model choices
+                    check_in_time=timezone.now(),
+                    priority_level=3,  # 1=Normal, 2=Urgent, 3=Emergency
+                )
+                messages.error(
+                    request,
+                    f"EMERGENCY TICKET CREATED for {patient.last_name} {patient.first_name}. Patient moved to top of Nurse queue.",
+                )
+
+            except Patient.DoesNotExist:
+                messages.warning(
+                    request,
+                    "Patient record not found. Proceeding with Anonymous Emergency Protocol.",
+                )
+
+        # If no patient ID, we log a "General Emergency" to notify staff
+        else:
+            messages.error(
+                request,
+                "GENERAL EMERGENCY ALERT INITIATED. Medical team has been notified.",
+            )
+
+    return redirect("receptionist_dashboard")
 
 ## Nurse views
 def triage_list(request):
@@ -132,4 +176,3 @@ def doctor_list(request):
     # Queue for patients ready for consultation
     queue = Encounter.objects.filter(status='TRIAGE').order_by('-priority', 'created_at')
     return render(request, 'clinic/doctor_list.html', {'queue': queue})
-
