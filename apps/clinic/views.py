@@ -1,9 +1,110 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 
-from .models import Encounter
+from .models import Encounter, Patient
+from apps.pharmacy.models import Medicine
+from .tasks import notify_department_queue
 
 # Create your views here.
+
+## Receptionist views
+def receptionist_dashboard(request):
+    query = request.GET.get('search', '')
+    patient = None
+    
+    if query:
+        # Search by Reg Number or Clinic Number
+        patient = Patient.objects.filter(
+            reg_number__iexact=query
+        ).first() or Patient.objects.filter(
+            clinic_code=query
+        ).first()
+
+        if not patient:
+            messages.info(request, f"No record found for '{query}'. Please register the student.")
+
+    return render(request, 'clinic/receptionist_dash.html', {
+        'patient': patient,
+        'query': query
+    })
+
+def register_student(request):
+    if request.method == "POST":
+        # Capture the 3 names as requested
+        new_patient = Patient.objects.create(
+            first_name=request.POST.get('first_name'),
+            middle_name=request.POST.get('middle_name'),
+            last_name=request.POST.get('last_name'),
+            reg_number=request.POST.get('reg_number'),
+            faculty=request.POST.get('faculty'),
+            department=request.POST.get('department'),
+            gender=request.POST.get('gender'),
+            date_of_birth=request.POST.get('dob'),
+        )
+        messages.success(request, f"Registered! Clinic ID: {new_patient.clinic_code}")
+        return redirect('receptionist_dashboard')
+    
+    return render(request, 'clinic/register_student.html')
+
+def create_encounter(request, patient_id):
+    if request.method == "POST":
+        patient = get_object_or_404(Patient, id=patient_id)
+        
+        # Check if they already have an active ticket
+        active_ticket = Encounter.objects.filter(patient=patient, status__exclude='CLOSED').exists()
+        
+        if active_ticket:
+            messages.error(request, "This student already has an active session.")
+        else:
+            # Create the Ticket
+            Encounter.objects.create(
+                patient=patient,
+                status='RECEPTION'
+            )
+            messages.success(request, f"Ticket created for {patient.full_name}. Sent to Nursing.")
+            
+        return redirect('receptionist_dashboard')
+    
+
+def consultation_detail(request, visit_id):
+    encounter = get_object_or_404(Encounter, visit_id=visit_id)
+    medicines = Medicine.objects.all() # To populate the prescription section
+
+    if request.method == "POST":
+        encounter.chief_complaint = request.POST.get('complaint')
+        encounter.clinical_notes = request.POST.get('notes')
+        encounter.diagnosis = request.POST.get('diagnosis')
+        
+        # Determine next destination
+        action = request.POST.get('next_step')
+        if action == 'lab':
+            encounter.status = 'LAB'
+        else:
+            encounter.status = 'PHARMACY'
+            
+        encounter.save()
+        messages.success(request, f"Consultation for {encounter.patient.full_name} completed.")
+        return redirect('doctor_list')
+
+    return render(request, 'clinic/doctor_detail.html', {
+        'encounter': encounter,
+        'medicines': medicines
+    })
+
+def check_in_patient(request, patient_id):
+    patient = Patient.objects.get(id=patient_id)
+    
+    # Create the Encounter (The "Ticket")
+    encounter = Encounter.objects.create(
+        patient=patient,
+        status='RECEPTION', # Start of the flow
+        priority=request.POST.get('priority', 1)
+    )
+
+    notify_department_queue(encounter_id=encounter.id, department='NURSING')
+
+    messages.success(request, f"Ticket generated for {patient.last_name}. Proceed to Nursing Triage.")
+    return redirect('receptionist_dashboard')
 
 ## Nurse views
 def triage_list(request):
@@ -32,19 +133,3 @@ def doctor_list(request):
     queue = Encounter.objects.filter(status='TRIAGE').order_by('-priority', 'created_at')
     return render(request, 'clinic/doctor_list.html', {'queue': queue})
 
-def consultation_detail(request, visit_id):
-    encounter = get_object_or_404(Encounter, visit_id=visit_id)
-    
-    if request.method == "POST":
-        encounter.chief_complaint = request.POST.get('complaint')
-        encounter.diagnosis = request.POST.get('diagnosis')
-        # Logic to decide if they go to Lab or Pharmacy
-        if request.POST.get('action') == 'to_lab':
-            encounter.status = 'LAB'
-        else:
-            encounter.status = 'PHARMACY'
-        
-        encounter.save()
-        return redirect('doctor_list')
-
-    return render(request, 'clinic/doctor_detail.html', {'encounter': encounter})

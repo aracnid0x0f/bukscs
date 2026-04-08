@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 p-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center">
+                <i data-lucide="file-text" class="mr-2 text-blue-900"></i> Student File
+            </h3>
+            <div class="space-y-2 text-sm">
+                <p><strong>Name:</strong> {{ encounter.patient.full_name }}</p>
+                <p><strong>Reg No:</strong> {{ encounter.patient.reg_number }}</p>
+                <p><strong>Allergies:</strong> <span class="text-red-600">{{ encounter.patient.allergies|default:"None" }}</span></p>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+            <h3 class="font-bold text-blue-900 mb-4 flex items-center">
+                <i data-lucide="thermometer" class="mr-2"></i> Current Vitals
+            </h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-3 rounded-lg text-center">
+                    <p class="text-xs text-gray-500">Temp</p>
+                    <p class="font-bold">{{ encounter.temperature }}°C</p>
+                </div>
+                <div class="bg-white p-3 rounded-lg text-center">
+                    <p class="text-xs text-gray-500">BP</p>
+                    <p class="font-bold">{{ encounter.blood_pressure }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <form method="POST" class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 space-y-6">
+            {% csrf_token %}
+            
+            <div>
+                <label class="block font-semibold mb-2">Chief Complaint</label>
+                <textarea name="complaint" rows="2" class="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500" placeholder="What is the student complaining of?"></textarea>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-2">Clinical Notes & Findings</label>
+                <textarea name="notes" rows="4" class="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button name="next_step" value="pharmacy" class="bg-blue-900 text-white p-4 rounded-xl font-bold hover:bg-blue-800 transition flex items-center justify-center">
+                    <i data-lucide="pill" class="mr-2"></i> Send to Pharmacy
+                </button>
+                <button name="next_step" value="lab" class="bg-gray-100 text-gray-800 p-4 rounded-xl font-bold hover:bg-gray-200 transition flex items-center justify-center">
+                    <i data-lucide="microscope" class="mr-2"></i> Order Lab Test
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

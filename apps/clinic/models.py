@@ -1,4 +1,5 @@
 import uuid
+import random
 
 from django.db import models
 
@@ -6,6 +7,14 @@ from core import settings as settings
 from apps.users.models import User
 
 # Create your models here.
+
+def generate_clinic_number():
+    while True:
+        # Generates a random 6-digit number
+        number = str(random.randint(100000, 999999))
+        if not Patient.objects.filter(clinic_code=number).exists():
+            return number
+        
 class Patient(models.Model):
     GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
 
@@ -13,10 +22,10 @@ class Patient(models.Model):
     first_name = models.CharField(max_length=255)
     middle_name = models.CharField(max_length=255, blank=True)
     last_name = models.CharField(max_length=255)
-    reg_number = models.CharField(max_length=50, unique=True) # Primary Key for BUK
+    reg_number = models.CharField(max_length=18, unique=True) # Primary Key for BUK
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     date_of_birth = models.DateField()
-    clinic_code = models.CharField(max_length=20, blank=True) # e.g. "000-000"
+    clinic_code = models.CharField(max_length=6, blank=True) # e.g. "000-000"
     
     # University Specifics
     faculty = models.CharField(max_length=100, blank=True)
@@ -36,8 +45,13 @@ class Patient(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if not self.clinic_code:
+            self.clinic_code = generate_clinic_number()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.reg_number} - {self.full_name}"
+        return f"{self.reg_number} - {self.last_name} {self.first_name}"
 
 
 class Encounter(models.Model):

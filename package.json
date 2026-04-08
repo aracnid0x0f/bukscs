@@ -5,9 +5,14 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "tailwindcss": "^4.2.2"
+    "prettier-plugin-tailwindcss": "^0.7.2"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2"
   }
 }
