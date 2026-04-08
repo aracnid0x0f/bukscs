@@ -66,7 +66,6 @@ def create_encounter(request, patient_id):
             
         return redirect('receptionist_dashboard')
 
-
 def consultation_detail(request, visit_id):
     encounter = get_object_or_404(Encounter, visit_id=visit_id)
     medicines = Medicine.objects.all() # To populate the prescription section
@@ -150,7 +149,66 @@ def emergency_protocol(request):
 
     return redirect("receptionist_dashboard")
 
+
 ## Nurse views
+def nurse_dashboard(request):
+    """
+    Renders the Nurse Dashboard with the current queue.
+    Filters for Encounters awaiting vitals (RECEPTION) or Emergency cases.
+    """
+    # The Meta ordering in your model already handles priority,
+    # but we filter specifically for the nurse's scope.
+    queue = Encounter.objects.filter(
+        status__in=[Encounter.Status.RECEPTION, Encounter.Status.EMERGENCY]
+    )
+
+    # Selection logic for the sidebar
+    active_encounter_id = request.GET.get("encounter_id")
+    active_encounter = None
+    if active_encounter_id:
+        active_encounter = Encounter.objects.filter(
+            visit_id=active_encounter_id
+        ).first()
+
+    context = {
+        "queue": queue,
+        "active_encounter": active_encounter,
+        "status_choices": Encounter.Status,
+    }
+    return render(request, "clinic/nurse_dashboard.html", context)
+
+def submit_vitals(request, visit_id):
+    """
+    Interaction view: Processes the vitals form and moves the
+    Encounter from RECEPTION to TRIAGE (Awaiting Consultation).
+    """
+    if request.method == "POST":
+        # We use the UUID visit_id from your model
+        encounter = get_object_or_404(Encounter, visit_id=visit_id)
+
+        # Mapping your specific model fields
+        encounter.temperature = request.POST.get("temperature")
+        encounter.weight = request.POST.get("weight")
+        encounter.blood_pressure = request.POST.get("blood_pressure")
+        encounter.heart_rate = request.POST.get("heart_rate")
+
+        # Logic: Move the ticket to the Doctor's queue
+        # In your model, Status.TRIAGE = "Awaiting Consultation"
+        encounter.status = Encounter.Status.TRIAGE
+
+        # Optional: update priority if the nurse deems it urgent
+        new_priority = request.POST.get("priority")
+        if new_priority:
+            encounter.priority = new_priority
+
+        encounter.save()
+
+        messages.success(
+            request,
+            f"Vitals for {encounter.patient.first_name} captured. Moved to Triage.",
+        )
+        return redirect("nurse_dashboard")
+
 def triage_list(request):
     # Only show students who have been checked in by reception but haven't seen a nurse
     queue = Encounter.objects.filter(status='RECEPTION').order_by('-priority', 'created_at')
@@ -170,6 +228,7 @@ def triage_detail(request, visit_id):
         return redirect('triage_list')
 
     return render(request, 'clinic/triage_detail.html', {'encounter': encounter})
+
 
 ## Doctor views
 def doctor_list(request):

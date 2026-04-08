@@ -1,0 +1,269 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Nurse Triage | BUK Smart Clinic</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00647c",
+                        "primary-container": "#007f9d",
+                        "tertiary": "#b02518",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container-low": "#f2f4f6",
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        
+        .django-message { transition: opacity 0.5s ease, transform 0.5s ease; }
+        .message-hidden { opacity: 0; transform: translateX(20px); pointer-events: none; }
+
+        .emergency-pulse {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(176, 37, 24, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(176, 37, 24, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(176, 37, 24, 0); }
+        }
+    </style>
+</head>
+<body class="bg-[#f7f9fb] text-[#191c1e]">
+
+<div id="alert-container" class="fixed top-20 right-8 z-50 w-full max-w-sm space-y-4">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="django-message p-4 rounded-2xl shadow-xl flex items-start justify-between border backdrop-blur-md 
+                {% if message.tags == 'error' %} bg-red-50/90 border-red-200 text-red-800 {% else %} bg-cyan-50/90 border-cyan-200 text-cyan-800 {% endif %}">
+                <div class="flex items-center space-x-3">
+                    <span class="material-symbols-outlined text-xl">
+                        {% if message.tags == 'error' %}report{% else %}info{% endif %}
+                    </span>
+                    <p class="text-sm font-bold">{{ message }}</p>
+                </div>
+                <button onclick="dismissAlert(this.parentElement)" class="ml-4 text-slate-400 hover:text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-lg font-bold">close</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+<header class="fixed top-0 left-0 right-0 z-40 bg-white/70 backdrop-blur-md border-b border-cyan-500/10 flex justify-center h-16">
+    <div class="w-full max-w-[1400px] flex justify-between items-center px-8">
+        <div class="flex items-center space-x-4">
+            <div class="flex flex-col text-left">
+                <span class="text-sm font-black text-cyan-800 font-headline leading-tight">BUK Smart Clinic</span>
+                <span class="text-[10px] text-cyan-600 font-medium uppercase tracking-tighter">Cyan-Tech Edition</span>
+            </div>
+            <div class="h-6 w-px bg-cyan-200 mx-2"></div>
+            <span class="text-lg font-black text-cyan-800 font-headline">Nurse Triage Station</span>
+        </div>
+        
+        <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-3 bg-cyan-100/50 px-4 py-2 rounded-full border border-cyan-200/50">
+                <div class="w-7 h-7 rounded-full bg-cyan-600 flex items-center justify-center text-white text-[10px] font-bold">
+                    {{ user.first_name|first }}{{ user.last_name|first }}
+                </div>
+                <span class="text-xs font-bold text-cyan-900">{{ user.get_full_name|default:user.username }}</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="pt-16 min-h-screen">
+    <div class="w-full h-12 sticky top-16 bg-cyan-50 z-30 flex items-center justify-center border-t border-cyan-100">
+        <div class="flex items-center space-x-2 text-cyan-700 font-bold border-b-2 border-cyan-700 h-full font-mono text-xs uppercase tracking-widest px-4">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+            <span>Live Triage Queue</span>
+        </div>
+    </div>
+
+    <div class="p-8 max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-4">
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest px-2 mb-4">Awaiting Vitals ({{ queue|length }})</h3>
+            <div class="space-y-3 overflow-y-auto max-h-[calc(100vh-250px)] pr-2">
+                {% for encounter in queue %}
+                <a href="?encounter_id={{ encounter.visit_id }}" 
+                   class="block bg-white p-4 rounded-3xl border transition-all hover:shadow-md group 
+                   {% if active_encounter.visit_id == encounter.visit_id %} border-primary ring-1 ring-primary {% else %} border-slate-100 {% endif %}
+                   {% if encounter.status == 'EMERGENCY' %} emergency-pulse border-red-200 bg-red-50/30 {% endif %}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-cyan-700 font-bold text-sm border border-slate-100 overflow-hidden">
+                                {% if encounter.patient.photo %}
+                                    <img src="{{ encounter.patient.photo.url }}" class="w-full h-full object-cover">
+                                {% else %}
+                                    {{ encounter.patient.first_name|first }}{{ encounter.patient.last_name|first }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">{{ encounter.patient.last_name|upper }} {{ encounter.patient.first_name }}</p>
+                                <p class="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">{{ encounter.patient.reg_number }}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-black uppercase text-slate-400">Time</p>
+                            <p class="text-[10px] font-mono text-slate-600">{{ encounter.created_at|date:"H:i" }}</p>
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+                    <span class="material-symbols-outlined text-slate-200 text-5xl mb-2">done_all</span>
+                    <p class="text-xs text-slate-400 font-medium">Clear Queue. No students waiting.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="lg:col-span-8">
+            {% if active_encounter %}
+            <div class="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 relative overflow-hidden">
+                
+                <div class="flex items-start justify-between mb-10">
+                    <div class="flex items-center space-x-6">
+                        <div class="w-20 h-20 rounded-[2rem] bg-cyan-50 flex items-center justify-center border border-cyan-100 overflow-hidden">
+                            {% if active_encounter.patient.photo %}
+                                <img src="{{ active_encounter.patient.photo.url }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <span class="material-symbols-outlined text-4xl text-cyan-200">person</span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-headline font-extrabold text-cyan-950">
+                                {{ active_encounter.patient.get_full_name }}
+                            </h2>
+                            <p class="font-mono text-primary font-bold">{{ active_encounter.patient.reg_number }}</p>
+                            <div class="flex space-x-3 mt-2">
+                                <span class="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase">{{ active_encounter.patient.faculty }}</span>
+                                <span class="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase">{{ active_encounter.patient.blood_group }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <span class="text-[10px] font-black text-slate-300 uppercase block mb-1">Ticket ID</span>
+                        <span class="font-mono text-xs bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                            {{ active_encounter.visit_id|stringformat:".8s" }}...
+                        </span>
+                    </div>
+                </div>
+
+                <form action="{% url 'submit_vitals' active_encounter.visit_id %}" method="POST" class="space-y-8">
+                    {% csrf_token %}
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-cyan-800 uppercase tracking-widest px-1">Temperature (°C)</label>
+                            <div class="relative">
+                                <input name="temperature" type="number" step="0.1" required
+                                    class="w-full py-4 px-6 bg-slate-50 border-none rounded-2xl font-mono text-lg focus:ring-2 focus:ring-primary/20"
+                                    placeholder="36.5">
+                                <span class="absolute right-4 top-4 material-symbols-outlined text-slate-300">thermostat</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-cyan-800 uppercase tracking-widest px-1">Blood Pressure</label>
+                            <div class="relative">
+                                <input name="blood_pressure" type="text" required
+                                    class="w-full py-4 px-6 bg-slate-50 border-none rounded-2xl font-mono text-lg focus:ring-2 focus:ring-primary/20"
+                                    placeholder="120/80">
+                                <span class="absolute right-4 top-4 material-symbols-outlined text-slate-300">blood_pressure</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-cyan-800 uppercase tracking-widest px-1">Weight (kg)</label>
+                            <div class="relative">
+                                <input name="weight" type="number" step="0.01"
+                                    class="w-full py-4 px-6 bg-slate-50 border-none rounded-2xl font-mono text-lg focus:ring-2 focus:ring-primary/20"
+                                    placeholder="70.0">
+                                <span class="absolute right-4 top-4 material-symbols-outlined text-slate-300">scale</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-cyan-800 uppercase tracking-widest px-1">Heart Rate (bpm)</label>
+                            <div class="relative">
+                                <input name="heart_rate" type="number"
+                                    class="w-full py-4 px-6 bg-slate-50 border-none rounded-2xl font-mono text-lg focus:ring-2 focus:ring-primary/20"
+                                    placeholder="72">
+                                <span class="absolute right-4 top-4 material-symbols-outlined text-slate-300">favorite</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-cyan-800 uppercase tracking-widest px-1">Observations & Clinical Notes</label>
+                        <textarea name="notes" rows="4" 
+                            class="w-full p-6 bg-slate-50 border-none rounded-3xl text-sm focus:ring-2 focus:ring-primary/20 placeholder:text-slate-300"
+                            placeholder="Describe any visible symptoms or complaints..."></textarea>
+                    </div>
+
+                    <div class="pt-6 flex items-center space-x-4">
+                        <button type="submit" name="action" value="triage"
+                            class="flex-1 bg-primary text-white py-5 px-8 rounded-2xl font-bold flex items-center justify-center space-x-3 hover:bg-primary-container transition-all shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined">send_to_mobile</span>
+                            <span>Push to Consultation</span>
+                        </button>
+                        
+                        <button type="submit" name="action" value="emergency"
+                            class="px-8 py-5 bg-tertiary text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg shadow-tertiary/20">
+                            <span class="material-symbols-outlined">emergency_home</span>
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+            {% else %}
+            <div class="h-full min-h-[500px] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-dashed border-slate-200 text-slate-300">
+                <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-5xl">pending_actions</span>
+                </div>
+                <h3 class="text-xl font-headline font-bold text-slate-400">Station Ready</h3>
+                <p class="text-sm">Select a student from the queue to start Triage</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<script>
+    function dismissAlert(element) {
+        element.classList.add('message-hidden')
+        setTimeout(() => {
+            element.remove()
+        }, 500)
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const alerts = document.querySelectorAll('.django-message')
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                if (alert && alert.parentNode) {
+                    dismissAlert(alert)
+                }
+            }, 3000)
+        })
+    })
+</script>
+
+</body>
+</html>
