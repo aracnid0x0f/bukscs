@@ -2,7 +2,7 @@ from django.apps import AppConfig
 
 
 class ClinicConfig(AppConfig):
-    name = 'apps.clinic'
-
-    def ready(self):
-        import apps.clinic.signals
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.clinic"
+    label = "clinic"
+    verbose_name = "Clinic"

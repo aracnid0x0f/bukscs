@@ -1,53 +1,65 @@
+"""
+clinic/models.py
+Core clinical models: Patient, Encounter (ticket), Prescription.
+"""
 import uuid
 import random
-
+from django.conf import settings
 from django.db import models
-
-from core import settings as settings
-from apps.users.models import User
-
-# Create your models here.
+from django.utils import timezone
 
 
 def generate_clinic_number():
-    while True:
-        # Generates a random 6-digit number
+    for _ in range(30):
         number = str(random.randint(100000, 999999))
         if not Patient.objects.filter(clinic_code=number).exists():
             return number
+    raise RuntimeError("Could not generate a unique clinic code.")
 
 
 class Patient(models.Model):
-    GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
+    GENDER_CHOICES = [("M", "Male"), ("F", "Female"), ("O", "Other")]
 
     # Identification
-    first_name = models.CharField(max_length=255)
-    middle_name = models.CharField(max_length=255, blank=True)
-    last_name = models.CharField(max_length=255)
-    reg_number = models.CharField(max_length=18, unique=True)  # Primary Key for BUK
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
-    date_of_birth = models.DateField()
-    clinic_code = models.CharField(max_length=6, blank=True)  # e.g. "000-000"
+    first_name    = models.CharField(max_length=255)
+    middle_name   = models.CharField(max_length=255, blank=True)
+    last_name     = models.CharField(max_length=255)
+    reg_number    = models.CharField(max_length=30, unique=True)
+    gender        = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    clinic_code   = models.CharField(max_length=6, blank=True, unique=True)
+    phone_number  = models.CharField(max_length=20, blank=True)
+    email         = models.EmailField(blank=True)
 
-    # University Specifics
-    faculty = models.CharField(max_length=100, blank=True)
+    # University
+    faculty    = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
-    level = models.IntegerField(null=True, blank=True)  # e.g., 100, 200...
+    level      = models.IntegerField(null=True, blank=True)
+    address    = models.TextField(blank=True)
 
-    # Medical Essentials (The "Big File" baseline)
-    blood_group = models.CharField(max_length=5, blank=True)
-    genotype = models.CharField(max_length=5, blank=True)
-    allergies = models.TextField(blank=True, help_text="List all known allergies")
-    medical_history = models.TextField(
-        blank=True, help_text="Chronic conditions, past surgeries, etc."
+    # Medical baseline
+    blood_group     = models.CharField(max_length=5, blank=True)
+    genotype        = models.CharField(max_length=5, blank=True)
+    allergies       = models.TextField(blank=True)
+    medical_history = models.TextField(blank=True)
+
+    # Emergency contact
+    next_of_kin_name  = models.CharField(max_length=255, blank=True)
+    next_of_kin_phone = models.CharField(max_length=20, blank=True)
+
+    # File uploads
+    photo        = models.ImageField(upload_to="patients/photos/", null=True, blank=True)
+    sif_document = models.FileField(
+        upload_to="patients/sif/",
+        null=True, blank=True,
+        help_text="Student Information Form — PDF or image"
     )
-
-    # Emergency Contact
-    next_of_kin_name = models.CharField(max_length=255, blank=True)
-    next_of_kin_phone = models.CharField(max_length=15, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["last_name", "first_name"]
 
     def save(self, *args, **kwargs):
         if not self.clinic_code:
@@ -55,107 +67,128 @@ class Patient(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.reg_number} - {self.last_name} {self.first_name}"
+        return f"{self.reg_number} — {self.last_name}, {self.first_name}"
 
     @property
     def full_name(self):
-        names = [self.first_name]
+        parts = [self.first_name]
         if self.middle_name:
-            names.append(self.middle_name)
-        names.append(self.last_name)
-        return " ".join(names)
+            parts.append(self.middle_name)
+        parts.append(self.last_name)
+        return " ".join(parts)
+
+    @property
+    def display_name(self):
+        """LASTNAME, Firstname Middlename format."""
+        rest = self.first_name
+        if self.middle_name:
+            rest += f" {self.middle_name}"
+        return f"{self.last_name.upper()}, {rest}"
+
+    @property
+    def initials(self):
+        return f"{self.first_name[:1]}{self.last_name[:1]}".upper()
+
+    @property
+    def has_active_encounter(self):
+        return self.encounters.exclude(status=Encounter.Status.CLOSED).exists()
+
+    @property
+    def last_visit(self):
+        return self.encounters.order_by("-created_at").first()
+
+    @property
+    def visit_count(self):
+        return self.encounters.count()
 
 
 class Encounter(models.Model):
+
     class Status(models.TextChoices):
-        RECEPTION = "RECEPTION", "Awaiting Vitals"
-        TRIAGE = "TRIAGE", "Awaiting Consultation"
+        RECEPTION    = "RECEPTION",    "Awaiting Vitals"
+        TRIAGE       = "TRIAGE",       "Awaiting Consultation"
         CONSULTATION = "CONSULTATION", "With Doctor"
-        LABORATORY = "LAB", "In Laboratory"
-        PHARMACY = "PHARMACY", "Awaiting Medication"
-        CLOSED = "CLOSED", "Completed"
-        EMERGENCY = "EMERGENCY", "Emergency Case"
+        LABORATORY   = "LAB",          "In Laboratory"
+        PHARMACY     = "PHARMACY",     "Awaiting Medication"
+        CLOSED       = "CLOSED",       "Completed"
+        EMERGENCY    = "EMERGENCY",    "Emergency"
 
-    # Linking the Ticket to the File
-    patient = models.ForeignKey(
-        Patient, on_delete=models.CASCADE, related_name="encounters"
-    )
+    class Priority(models.IntegerChoices):
+        NORMAL    = 1, "Normal"
+        URGENT    = 2, "Urgent"
+        EMERGENCY = 3, "Emergency"
 
-    # Unique Ticket ID for this visit
+    patient  = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="encounters")
     visit_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    status   = models.CharField(max_length=20, choices=Status.choices, default=Status.RECEPTION)
+    priority = models.IntegerField(choices=Priority.choices, default=Priority.NORMAL)
 
-    # The Flow Logic
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.RECEPTION
-    )
-    priority = models.IntegerField(
-        default=1, help_text="1: Normal, 2: Urgent, 3: Emergency"
-    )
+    # Triage (Nurse fills)
+    temperature    = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight         = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    blood_pressure = models.CharField(max_length=20, blank=True, null=True)
+    heart_rate     = models.IntegerField(null=True, blank=True)
+    spo2           = models.IntegerField(null=True, blank=True, help_text="Blood oxygen saturation %")
+    triage_notes   = models.TextField(blank=True)
 
-    # Data points filled as the ticket moves
-    # Triage Data (Nurse)
-    temperature = models.DecimalField(
-        max_digits=4, decimal_places=1, null=True, blank=True
-    )
-    weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    blood_pressure = models.CharField(max_length=20, null=True, blank=True)
-    heart_rate = models.IntegerField(null=True, blank=True)
-    spo2 = models.IntegerField(
-        null=True, blank=True, help_text="Blood oxygen saturation percentage"
-    )
-    triage_notes = models.TextField(
-        blank=True, help_text="Clinical observations during triage"
-    )
-
-    # Consultation Data (Doctor)
+    # Consultation (Doctor fills)
     chief_complaint = models.TextField(blank=True)
-    clinical_notes = models.TextField(blank=True)
-    diagnosis = models.TextField(blank=True)
+    clinical_notes  = models.TextField(blank=True)
+    diagnosis       = models.TextField(blank=True)
 
-    # Assignment Tracking
     doctor_assigned = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.SET_NULL, null=True, blank=True,
         related_name="doctor_encounters",
+        limit_choices_to={"role": "DOCTOR"},
+    )
+    checked_in_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="checkins_done",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
-    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_at  = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-priority", "created_at"]
 
     def __str__(self):
-        return f"Encounter {self.visit_id} for {self.patient.reg_number}"
+        return f"{self.ticket_number} — {self.patient.reg_number} [{self.get_status_display()}]"
+
+    @property
+    def ticket_number(self):
+        n = str(self.visit_id.int)[-4:]
+        return f"#TK-{n}"
+
+    def close(self):
+        self.status = self.Status.CLOSED
+        self.closed_at = timezone.now()
+        self.save(update_fields=["status", "closed_at"])
 
 
 class Prescription(models.Model):
+
     class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending Dispensation"
-        DISPENSED = "DISPENSED", "Dispensed"
+        PENDING      = "PENDING",      "Pending"
+        DISPENSED    = "DISPENSED",    "Dispensed"
         OUT_OF_STOCK = "OUT_OF_STOCK", "Out of Stock"
 
-    encounter = models.ForeignKey(
-        "Encounter", on_delete=models.CASCADE, related_name="prescriptions"
+    encounter       = models.ForeignKey(Encounter, on_delete=models.PROTECT, related_name="prescriptions")
+    doctor          = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="prescriptions_issued",
+        limit_choices_to={"role": "DOCTOR"},
     )
-    doctor = models.ForeignKey(
-        User, on_delete=models.CASCADE, limit_choices_to={"role": "DOCTOR"}
-    )
-
     medication_name = models.CharField(max_length=255)
-    dosage = models.CharField(max_length=100)  # e.g., "500mg"
-    frequency = models.CharField(max_length=100)  # e.g., "2x Daily"
-    duration = models.CharField(max_length=50)  # e.g., "5 Days"
-
-    instructions = models.TextField(blank=True)  # e.g., "Take after meals"
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.PENDING
-    )
-
-    issued_at = models.DateTimeField(auto_now_add=True)
-    dispensed_at = models.DateTimeField(null=True, blank=True)
+    dosage          = models.CharField(max_length=100)
+    frequency       = models.CharField(max_length=100)
+    duration        = models.CharField(max_length=50)
+    instructions    = models.TextField(blank=True)
+    status          = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    issued_at       = models.DateTimeField(auto_now_add=True)
+    dispensed_at    = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.medication_name} for {self.encounter.patient.full_name}"
+        return f"{self.medication_name} → {self.encounter.patient.full_name}"

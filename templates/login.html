@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Admin Portal — BUK Smart Clinic</title>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#e8edf2; --sh-light:#ffffff; --sh-dark:#c5cdd8;
+  --neo-sm:4px 4px 8px var(--sh-dark),-4px -4px 8px var(--sh-light);
+  --neo-md:8px 8px 16px var(--sh-dark),-8px -8px 16px var(--sh-light);
+  --neo-lg:12px 12px 24px var(--sh-dark),-12px -12px 24px var(--sh-light);
+  --neo-inset:inset 4px 4px 8px var(--sh-dark),inset -4px -4px 8px var(--sh-light);
+  --neo-inset-sm:inset 2px 2px 5px var(--sh-dark),inset -2px -2px 5px var(--sh-light);
+  --teal:#1a7f7a; --teal-dark:#145f5b; --teal-light:#e0f2f1;
+  --text-1:#1a2332; --text-2:#4a5568; --text-3:#8a96a8;
+  --red:#c0392b; --red-light:#fdecea; --green:#16a34a;
+  --font-ui:'Plus Jakarta Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --r-sm:8px; --r-md:14px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+  --ease:cubic-bezier(0.25,0.46,0.45,0.94);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--font-ui);background:var(--bg);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+
+/* ── LAYOUT ── */
+.login-shell{
+  flex:1;
+  display:grid;
+  grid-template-columns:420px 1fr;
+  min-height:100vh;
+}
+@media(max-width:820px){.login-shell{grid-template-columns:1fr}.left-panel{display:none}}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  background:linear-gradient(155deg,#1a7f7a 0%,#0d5a56 40%,#0a4540 100%);
+  padding:2.5rem;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  overflow:hidden;
+}
+.left-panel::before{
+  content:'';position:absolute;top:-80px;right:-80px;
+  width:300px;height:300px;border-radius:50%;
+  background:rgba(255,255,255,0.05);
+}
+.left-panel::after{
+  content:'';position:absolute;bottom:-60px;left:-40px;
+  width:220px;height:220px;border-radius:50%;
+  background:rgba(255,255,255,0.04);
+}
+.lp-logo{
+  display:flex;align-items:center;gap:0.75rem;margin-bottom:auto;
+}
+.lp-logo-icon{
+  width:42px;height:42px;border-radius:var(--r-md);
+  background:rgba(255,255,255,0.12);
+  display:flex;align-items:center;justify-content:center;
+}
+.lp-logo-name{font-size:0.95rem;font-weight:800;color:#fff}
+.lp-logo-tag{font-size:0.6rem;color:rgba(255,255,255,0.6);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+.lp-headline{
+  font-size:1.85rem;font-weight:800;color:#fff;
+  line-height:1.2;letter-spacing:-0.02em;
+  margin:auto 0 1.5rem;
+}
+.lp-body{font-size:0.85rem;color:rgba(255,255,255,0.7);line-height:1.65;margin-bottom:2rem}
+.lp-secure{
+  display:flex;align-items:center;gap:0.6rem;
+  background:rgba(255,255,255,0.1);
+  border-radius:var(--r-pill);
+  padding:0.6rem 1rem;
+  font-size:0.75rem;color:rgba(255,255,255,0.8);
+}
+.lp-footer{font-size:0.6rem;color:rgba(255,255,255,0.4);margin-top:1rem;letter-spacing:0.04em}
+
+/* ── RIGHT FORM ── */
+.right-panel{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:3rem 2rem;
+}
+.auth-box{
+  width:100%;max-width:460px;
+}
+.auth-title{font-size:1.5rem;font-weight:800;color:var(--text-1);letter-spacing:-0.02em;margin-bottom:0.3rem}
+.auth-sub{font-size:0.8rem;color:var(--text-3);margin-bottom:2rem}
+
+/* Role selector */
+.role-row{display:flex;gap:0.6rem;margin-bottom:1.75rem;flex-wrap:wrap}
+.role-chip-inp{display:none}
+.role-chip-inp+label{
+  display:flex;flex-direction:column;align-items:center;gap:0.4rem;
+  padding:0.75rem 0.85rem;min-width:70px;
+  background:var(--bg);
+  box-shadow:var(--neo-sm);
+  border-radius:var(--r-md);
+  font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+  color:var(--text-3);cursor:pointer;transition:all 0.18s var(--ease);
+  border:none;
+}
+.role-chip-inp+label:hover{box-shadow:var(--neo-md);color:var(--teal)}
+.role-chip-inp:checked+label{
+  box-shadow:var(--neo-inset-sm);
+  color:var(--teal);
+  background:var(--teal-light);
+}
+
+/* Fields */
+.field-group{margin-bottom:1rem}
+.field-lbl{
+  font-size:0.62rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:6px;display:block;
+}
+.neo-input{
+  width:100%;background:var(--bg);
+  box-shadow:var(--neo-inset-sm);
+  border:none;border-radius:var(--r-md);
+  padding:0.7rem 1rem;font-size:0.85rem;
+  color:var(--text-1);outline:none;transition:box-shadow 0.2s;
+  font-family:var(--font-mono);
+}
+.neo-input:focus{box-shadow:var(--neo-inset),0 0 0 2px rgba(26,127,122,0.18)}
+.neo-input::placeholder{color:var(--text-3);font-family:var(--font-ui)}
+.password-wrap{position:relative}
+.pw-toggle{
+  position:absolute;right:0.9rem;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--text-3);padding:0;
+}
+.pw-recovery{
+  position:absolute;right:0;top:-1.4rem;
+  font-size:0.65rem;font-weight:700;color:var(--teal);letter-spacing:0.04em;cursor:pointer;
+}
+.field-lbl-row{position:relative;display:flex;align-items:center}
+
+/* Checkbox */
+.neo-checkbox-wrap{display:flex;align-items:center;gap:0.6rem;margin-bottom:1.5rem;cursor:pointer}
+.neo-check-box{
+  width:20px;height:20px;border-radius:5px;flex-shrink:0;
+  background:var(--bg);box-shadow:var(--neo-inset-sm);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+.neo-check-inp{display:none}
+.neo-check-inp:checked+.neo-check-box{
+  background:var(--teal);box-shadow:none;
+}
+.neo-check-inp:checked+.neo-check-box::after{
+  content:'✓';color:#fff;font-size:0.7rem;font-weight:800;
+}
+.neo-check-lbl{font-size:0.8rem;color:var(--text-2)}
+
+/* Error */
+.error-banner{
+  display:flex;align-items:center;gap:0.6rem;
+  background:var(--red-light);
+  border-radius:var(--r-md);
+  padding:0.75rem 1rem;
+  margin-bottom:1rem;
+  font-size:0.8rem;color:var(--red);
+  box-shadow:inset 2px 2px 5px rgba(192,57,43,0.1),inset -2px -2px 5px rgba(255,255,255,0.5);
+}
+
+/* Submit button */
+.btn-auth{
+  width:100%;
+  display:flex;align-items:center;justify-content:center;gap:0.5rem;
+  padding:0.85rem;
+  background:var(--bg);
+  box-shadow:var(--neo-md);
+  border:none;border-radius:var(--r-pill);
+  font-family:var(--font-ui);
+  font-size:0.9rem;font-weight:800;
+  color:var(--teal);cursor:pointer;
+  letter-spacing:0.01em;
+  transition:all 0.2s var(--ease);
+}
+.btn-auth:hover{box-shadow:var(--neo-lg);transform:translateY(-1px)}
+.btn-auth:active{box-shadow:var(--neo-inset-sm);transform:translateY(0)}
+
+/* Node status pill */
+.node-pill{
+  display:inline-flex;align-items:center;gap:0.5rem;
+  margin-top:1.5rem;
+  background:var(--bg);
+  box-shadow:var(--neo-sm);
+  border-radius:var(--r-pill);
+  padding:0.35rem 0.85rem;
+  font-family:var(--font-mono);
+  font-size:0.65rem;color:var(--text-2);
+  letter-spacing:0.08em;text-transform:uppercase;
+}
+.node-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0}
+
+/* Footer links */
+.auth-footer{
+  display:flex;gap:2rem;justify-content:center;
+  padding:1rem;font-size:0.65rem;
+  color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;
+}
+</style>
+</head>
+<body>
+
+<div class="login-shell">
+  <!-- LEFT -->
+  <div class="left-panel">
+    <div class="lp-logo">
+      <div class="lp-logo-icon">
+        <i data-lucide="shield-plus" style="width:22px;height:22px;color:#fff;"></i>
+      </div>
+      <div>
+        <div class="lp-logo-name">BUK Smart Clinic</div>
+        <div class="lp-logo-tag">Medical Excellence Portal</div>
+      </div>
+    </div>
+
+    <h1 class="lp-headline">Nurturing the Future,<br>Preserving Health:<br>The Bayero University Medical Excellence Portal</h1>
+    <p class="lp-body">A high-performance environment designed for medical precision and seamless patient care integration.</p>
+
+    <div class="lp-secure">
+      <i data-lucide="shield-check" style="width:16px;height:16px;color:rgba(255,255,255,0.8);flex-shrink:0;"></i>
+      Secured Clinical Data Environment
+    </div>
+    <div class="lp-footer">© 2024 BAYERO UNIVERSITY KANO. HEALTH-TECH DIVISION.</div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-panel">
+    <div class="auth-box">
+      <h2 class="auth-title">System Authentication</h2>
+      <p class="auth-sub">Select your designation to access the portal.</p>
+
+      <!-- Role selector -->
+      <div class="role-row">
+        <input type="radio" name="role_display" id="role-admin"     class="role-chip-inp" value="ADMIN">
+        <label for="role-admin">
+          <i data-lucide="shield-half" style="width:22px;height:22px;"></i>
+          Admin
+        </label>
+        <input type="radio" name="role_display" id="role-doctor"    class="role-chip-inp" value="DOCTOR">
+        <label for="role-doctor">
+          <i data-lucide="stethoscope" style="width:22px;height:22px;"></i>
+          Doctor
+        </label>
+        <input type="radio" name="role_display" id="role-nurse"     class="role-chip-inp" value="NURSE">
+        <label for="role-nurse">
+          <i data-lucide="heart-pulse" style="width:22px;height:22px;"></i>
+          Nurse
+        </label>
+        <input type="radio" name="role_display" id="role-lab"       class="role-chip-inp" value="LAB_TECH">
+        <label for="role-lab">
+          <i data-lucide="microscope" style="width:22px;height:22px;"></i>
+          Lab
+        </label>
+        <input type="radio" name="role_display" id="role-reception" class="role-chip-inp" value="RECEPTIONIST" checked>
+        <label for="role-reception">
+          <i data-lucide="monitor-check" style="width:22px;height:22px;"></i>
+          Front Desk
+        </label>
+      </div>
+
+      {% if error %}
+      <div class="error-banner">
+        <i data-lucide="circle-x" style="width:16px;height:16px;flex-shrink:0;"></i>
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{% url 'clinic:login' %}">
+        {% csrf_token %}
+
+        <div class="field-group">
+          <label class="field-lbl" for="staff_id">Staff ID</label>
+          <input class="neo-input" type="text" name="staff_id" id="staff_id"
+            placeholder="STAFF-2024-XXXX" autocomplete="username" required>
+        </div>
+
+        <div class="field-group">
+          <div class="field-lbl-row">
+            <label class="field-lbl" for="password" style="margin-bottom:0;">Password</label>
+            <span class="pw-recovery">RECOVERY?</span>
+          </div>
+          <div class="password-wrap" style="margin-top:6px;">
+            <input class="neo-input" type="password" name="password" id="password"
+              placeholder="············" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" onclick="togglePw()">
+              <i data-lucide="eye" id="pw-eye" style="width:16px;height:16px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <label class="neo-checkbox-wrap">
+          <input type="checkbox" name="remember" class="neo-check-inp" id="remember">
+          <span class="neo-check-box"></span>
+          <span class="neo-check-lbl">Authorize this workstation</span>
+        </label>
+
+        <button type="submit" class="btn-auth">
+          Authenticate Access
+          <i data-lucide="log-in" style="width:16px;height:16px;"></i>
+        </button>
+      </form>
+
+      <div style="text-align:center;">
+        <div class="node-pill">
+          <span class="node-dot"></span>
+          Gateway: Active &nbsp;|&nbsp; Node: 04-Kano
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="auth-footer">
+  <a href="#">System Policy</a>
+  <a href="#">Contact Desk</a>
+  <a href="#">Security Log</a>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => lucide.createIcons());
+function togglePw() {
+  const inp = document.getElementById("password");
+  const ico = document.getElementById("pw-eye");
+  if (inp.type === "password") {
+    inp.type = "text";
+    ico.setAttribute("data-lucide", "eye-off");
+  } else {
+    inp.type = "password";
+    ico.setAttribute("data-lucide", "eye");
+  }
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

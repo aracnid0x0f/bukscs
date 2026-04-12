@@ -1,0 +1,403 @@
+{% extends "clinic/base.html" %}
+{% load clinic_tags %}
+{% block title %}Register Student — BUK Clinic EMR{% endblock %}
+
+{% block content %}
+<style>
+.reg-title-row{margin-bottom:2rem}
+.reg-title{font-size:1.5rem;font-weight:800;color:var(--text-1);letter-spacing:-0.02em}
+.reg-sub{font-size:0.8rem;color:var(--text-3);margin-top:0.25rem}
+
+/* Step sections */
+.step-section{
+  background:var(--bg);box-shadow:var(--neo-md);border-radius:var(--r-xl);
+  padding:1.75rem;margin-bottom:1.5rem;
+  max-width:720px;
+}
+.step-header{display:flex;align-items:center;gap:0.85rem;margin-bottom:1.5rem}
+.step-num{
+  width:34px;height:34px;border-radius:50%;
+  background:var(--teal);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;font-weight:800;flex-shrink:0;
+  box-shadow:3px 3px 6px rgba(26,127,122,0.3),-2px -2px 5px rgba(255,255,255,0.5);
+}
+.step-title{font-size:1rem;font-weight:700;color:var(--text-1)}
+
+/* Drop zone */
+.drop-zone{
+  border:2px dashed rgba(26,127,122,0.3);
+  border-radius:var(--r-xl);
+  padding:3rem 2rem;
+  text-align:center;
+  cursor:pointer;
+  transition:all 0.2s var(--ease);
+  background:var(--bg);
+  box-shadow:var(--neo-inset-sm);
+  position:relative;
+}
+.drop-zone:hover,.drop-zone.drag-over{
+  border-color:var(--teal);
+  box-shadow:var(--neo-inset),0 0 0 3px var(--teal-glow);
+}
+.dz-icon{
+  width:52px;height:52px;border-radius:50%;
+  background:var(--bg);box-shadow:var(--neo-sm);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1rem;color:var(--teal);
+}
+.dz-title{font-size:0.9rem;font-weight:700;color:var(--text-1);margin-bottom:0.35rem}
+.dz-sub{font-size:0.75rem;color:var(--text-3);margin-bottom:1rem;line-height:1.5}
+.dz-file-input{display:none}
+
+/* Uploaded file preview */
+.file-preview{
+  display:flex;align-items:center;gap:0.85rem;
+  background:var(--bg);box-shadow:var(--neo-sm);
+  border-radius:var(--r-md);padding:0.85rem 1rem;
+  margin-top:1rem;
+}
+.fp-icon{
+  width:38px;height:38px;border-radius:var(--r-sm);
+  background:var(--teal-light);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--teal);flex-shrink:0;
+}
+.fp-name{font-size:0.82rem;font-weight:600;color:var(--text-1)}
+.fp-size{font-size:0.65rem;color:var(--text-3);margin-top:2px}
+
+/* Extraction result */
+.extraction-banner{
+  background:var(--teal-light);
+  box-shadow:var(--neo-inset-sm);
+  border-radius:var(--r-md);
+  padding:0.75rem 1rem;
+  display:flex;align-items:center;gap:0.6rem;
+  font-size:0.8rem;color:var(--teal);
+  margin-bottom:1rem;
+}
+
+/* Form fields */
+.field-group{display:flex;flex-direction:column;gap:5px}
+
+/* Form section label */
+.form-section-head{
+  font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--text-3);padding-bottom:0.5rem;
+  border-bottom:1px solid rgba(0,0,0,0.06);
+  margin-bottom:0.85rem;
+}
+
+.form-actions{
+  display:flex;align-items:center;gap:0.85rem;
+  max-width:720px;
+  padding:1rem 0;
+}
+
+/* Success panel */
+.success-panel{
+  background:var(--bg);box-shadow:var(--neo-md);border-radius:var(--r-xl);
+  padding:3rem 2rem;max-width:540px;text-align:center;
+  animation:fadeUp 0.28s var(--ease);
+}
+.sp-ring{
+  width:72px;height:72px;border-radius:50%;
+  background:var(--bg);
+  box-shadow:6px 6px 12px rgba(22,163,74,0.2),-6px -6px 12px var(--sh-light);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1.1rem;color:var(--green);
+}
+.sp-name{font-size:1.25rem;font-weight:800;color:var(--text-1);margin-bottom:0.35rem}
+.sp-clinic-code{
+  font-family:var(--font-mono);font-size:1.5rem;font-weight:500;color:var(--teal);
+  background:var(--bg);box-shadow:var(--neo-inset);
+  border-radius:var(--r-lg);padding:0.5rem 1.75rem;
+  display:inline-block;margin:0.75rem 0 1.25rem;letter-spacing:0.12em;
+}
+.sp-sub{font-size:0.78rem;color:var(--text-2);line-height:1.6;margin-bottom:1.5rem}
+
+/* Error banner */
+.error-banner-form{
+  background:var(--red-light);box-shadow:var(--neo-inset-sm);
+  border-radius:var(--r-md);padding:0.75rem 1rem;
+  display:flex;align-items:center;gap:0.6rem;
+  font-size:0.8rem;color:var(--red);margin-bottom:1rem;
+}
+</style>
+
+<div class="reg-title-row">
+  <h1 class="reg-title">Student Registration</h1>
+  <p class="reg-sub">Complete the two-step verification and data entry process.</p>
+</div>
+
+{% if registered_patient %}
+<!-- Success state -->
+<div class="success-panel">
+  <div class="sp-ring">
+    <i data-lucide="check-circle" style="width:30px;height:30px;"></i>
+  </div>
+  <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);margin-bottom:0.35rem;">Registration Successful</div>
+  <div class="sp-name">{{ registered_patient.display_name }}</div>
+  <div class="sp-clinic-code">{{ registered_patient.clinic_code }}</div>
+  <p class="sp-sub">
+    {{ registered_patient.full_name }} has been registered in the system.<br>
+    Their clinic code is shown above — use it for future check-ins.
+  </p>
+  <div style="display:flex;justify-content:center;gap:0.85rem;flex-wrap:wrap;">
+    <a href="{% url 'clinic:search' %}?q={{ registered_patient.clinic_code }}" class="btn-neo btn-teal">
+      <i data-lucide="ticket-check" style="width:14px;height:14px;"></i>
+      Check In Now
+    </a>
+    <button class="btn-neo" onclick="window.location='{% url 'clinic:register' %}'">
+      <i data-lucide="user-plus" style="width:14px;height:14px;"></i>
+      Register Another
+    </button>
+  </div>
+</div>
+
+{% else %}
+
+<form method="POST" enctype="multipart/form-data" action="{% url 'clinic:register' %}">
+  {% csrf_token %}
+
+  <!-- ── STEP 1: SIF Document ── -->
+  <div class="step-section">
+    <div class="step-header">
+      <div class="step-num">01</div>
+      <div class="step-title">Document Verification</div>
+    </div>
+
+    {% if sif_uploaded %}
+    <div class="extraction-banner">
+      <i data-lucide="sparkles" style="width:16px;height:16px;flex-shrink:0;"></i>
+      SIF document processed — fields below have been pre-filled from the extracted data. Verify all entries before submitting.
+    </div>
+    <div class="file-preview">
+      <div class="fp-icon"><i data-lucide="file-text" style="width:18px;height:18px;"></i></div>
+      <div>
+        <div class="fp-name">{{ request.session.pending_sif_name|default:"Uploaded document" }}</div>
+        <div class="fp-size">Document stored — will be attached to patient record</div>
+      </div>
+      <div style="margin-left:auto;">
+        <span class="badge badge-green"><i data-lucide="check" style="width:9px;height:9px;"></i> Uploaded</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('sif-file-input').click()">
+      <div class="dz-icon"><i data-lucide="file-up" style="width:22px;height:22px;"></i></div>
+      <div class="dz-title">Upload SIF Letter</div>
+      <p class="dz-sub">Drag and drop the Student Information Form<br>or click to browse files.</p>
+      <button type="button" class="btn-neo btn-sm">
+        <i data-lucide="paperclip" style="width:13px;height:13px;"></i>
+        Select PDF / JPG
+      </button>
+      <input type="file" id="sif-file-input" name="sif_document" class="dz-file-input" accept=".pdf,.jpg,.jpeg,.png">
+    </div>
+    <div id="file-preview-area"></div>
+    <div style="margin-top:1rem;">
+      <button type="submit" name="action" value="upload_sif" class="btn-neo btn-teal btn-sm" id="sif-upload-btn" disabled>
+        <i data-lucide="upload" style="width:13px;height:13px;"></i>
+        Process Document
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── STEP 2: Bio-Data ── -->
+  <div class="step-section">
+    <div class="step-header">
+      <div class="step-num">02</div>
+      <div class="step-title">Bio-Data Information</div>
+    </div>
+
+    {% if reg_form.errors %}
+    <div class="error-banner-form">
+      <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+      Please correct the errors below before submitting.
+    </div>
+    {% endif %}
+
+    <div class="form-section-head">Personal Information</div>
+    <div class="form-grid-3" style="margin-bottom:0.85rem;">
+      <div class="field-group">
+        <label class="field-lbl" for="id_first_name">First Name <span style="color:var(--red)">*</span></label>
+        <input class="neo-input" type="text" name="first_name" id="id_first_name"
+          value="{{ reg_form.first_name.value|default:'' }}"
+          placeholder="e.g. Amina" required>
+        {% if reg_form.first_name.errors %}<div style="font-size:0.65rem;color:var(--red);">{{ reg_form.first_name.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_middle_name">Middle Name</label>
+        <input class="neo-input" type="text" name="middle_name" id="id_middle_name"
+          value="{{ reg_form.middle_name.value|default:'' }}" placeholder="e.g. Bello">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_last_name">Last Name <span style="color:var(--red)">*</span></label>
+        <input class="neo-input" type="text" name="last_name" id="id_last_name"
+          value="{{ reg_form.last_name.value|default:'' }}" placeholder="e.g. Sani" required>
+        {% if reg_form.last_name.errors %}<div style="font-size:0.65rem;color:var(--red);">{{ reg_form.last_name.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_gender">Gender</label>
+        <select class="neo-select" name="gender" id="id_gender">
+          <option value="">— Select —</option>
+          {% for val, label in reg_form.fields.gender.choices %}
+            {% if val %}<option value="{{ val }}" {% if reg_form.gender.value == val %}selected{% endif %}>{{ label }}</option>{% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_date_of_birth">Date of Birth</label>
+        <input class="neo-input" type="date" name="date_of_birth" id="id_date_of_birth"
+          value="{{ reg_form.date_of_birth.value|default:'' }}">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_phone_number">Phone Number</label>
+        <input class="neo-input" type="tel" name="phone_number" id="id_phone_number"
+          value="{{ reg_form.phone_number.value|default:'' }}" placeholder="+234 800 000 0000">
+      </div>
+      <div class="field-group span-2">
+        <label class="field-lbl" for="id_email">Email Address</label>
+        <input class="neo-input" type="email" name="email" id="id_email"
+          value="{{ reg_form.email.value|default:'' }}" placeholder="student@buk.edu.ng">
+      </div>
+    </div>
+
+    <div class="form-section-head">University Details</div>
+    <div class="form-grid-2" style="margin-bottom:0.85rem;">
+      <div class="field-group span-2">
+        <label class="field-lbl" for="id_reg_number">Registration Number <span style="color:var(--red)">*</span></label>
+        <input class="neo-input" type="text" name="reg_number" id="id_reg_number"
+          value="{{ reg_form.reg_number.value|default:'' }}"
+          placeholder="CST/19/COM/00123" style="text-transform:uppercase;" required>
+        {% if reg_form.reg_number.errors %}<div style="font-size:0.65rem;color:var(--red);">{{ reg_form.reg_number.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_faculty">Faculty</label>
+        <select class="neo-select" name="faculty" id="id_faculty">
+          <option value="">— Select Faculty —</option>
+          {% for fac in "Computing & Mathematics,Clinical Sciences,Engineering,Agriculture,Law,Sciences,Education,Social Sciences,Management Sciences,Medicine"|split:"," %}
+          <option value="{{ fac }}" {% if reg_form.faculty.value == fac %}selected{% endif %}>{{ fac }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_department">Department</label>
+        <input class="neo-input" type="text" name="department" id="id_department"
+          value="{{ reg_form.department.value|default:'' }}" placeholder="e.g. Computer Science">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_level">Level</label>
+        <select class="neo-select" name="level" id="id_level">
+          <option value="">— Select Level —</option>
+          {% for l in "100,200,300,400,500,600"|split:"," %}
+          <option value="{{ l }}" {% if reg_form.level.value|stringformat:"s" == l %}selected{% endif %}>{{ l }} Level</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_address">Address</label>
+        <input class="neo-input" type="text" name="address" id="id_address"
+          value="{{ reg_form.address.value|default:'' }}" placeholder="Home address">
+      </div>
+    </div>
+
+    <div class="form-section-head">Medical Baseline</div>
+    <div class="form-grid-3" style="margin-bottom:0.85rem;">
+      <div class="field-group">
+        <label class="field-lbl" for="id_blood_group">Blood Group</label>
+        <select class="neo-select" name="blood_group" id="id_blood_group">
+          {% for val, label in reg_form.fields.blood_group.choices %}
+          <option value="{{ val }}" {% if reg_form.blood_group.value == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_genotype">Genotype</label>
+        <select class="neo-select" name="genotype" id="id_genotype">
+          {% for val, label in reg_form.fields.genotype.choices %}
+          <option value="{{ val }}" {% if reg_form.genotype.value == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_photo">Student Photo</label>
+        <input class="neo-input" type="file" name="photo" id="id_photo" accept="image/*" style="padding:0.45rem 0.9rem;">
+      </div>
+      <div class="field-group span-3">
+        <label class="field-lbl" for="id_allergies">Known Allergies</label>
+        <textarea class="neo-textarea" name="allergies" id="id_allergies" rows="2" placeholder="List any known allergies…">{{ reg_form.allergies.value|default:'' }}</textarea>
+      </div>
+      <div class="field-group span-3">
+        <label class="field-lbl" for="id_medical_history">Medical History</label>
+        <textarea class="neo-textarea" name="medical_history" id="id_medical_history" rows="2" placeholder="Chronic conditions, past surgeries…">{{ reg_form.medical_history.value|default:'' }}</textarea>
+      </div>
+    </div>
+
+    <div class="form-section-head">Emergency Contact</div>
+    <div class="form-grid-2" style="margin-bottom:0;">
+      <div class="field-group">
+        <label class="field-lbl" for="id_next_of_kin_name">Next of Kin</label>
+        <input class="neo-input" type="text" name="next_of_kin_name" id="id_next_of_kin_name"
+          value="{{ reg_form.next_of_kin_name.value|default:'' }}">
+      </div>
+      <div class="field-group">
+        <label class="field-lbl" for="id_next_of_kin_phone">NOK Phone</label>
+        <input class="neo-input" type="tel" name="next_of_kin_phone" id="id_next_of_kin_phone"
+          value="{{ reg_form.next_of_kin_phone.value|default:'' }}" placeholder="+234…">
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="form-actions">
+    <button type="submit" name="action" value="save_draft" class="btn-neo btn-sm">
+      <i data-lucide="save" style="width:13px;height:13px;"></i>
+      Save Draft
+    </button>
+    <button type="submit" name="action" value="submit_registration" class="btn-neo btn-teal btn-lg">
+      <i data-lucide="user-check" style="width:16px;height:16px;"></i>
+      Submit Registration
+    </button>
+  </div>
+
+</form>
+{% endif %}
+
+<script>
+// Drop zone
+const dz = document.getElementById("drop-zone");
+const fi = document.getElementById("sif-file-input");
+const ubtn = document.getElementById("sif-upload-btn");
+const pa = document.getElementById("file-preview-area");
+
+if (fi) {
+  fi.addEventListener("change", () => {
+    const f = fi.files[0];
+    if (!f) return;
+    if (ubtn) ubtn.disabled = false;
+    const ext = f.name.split(".").pop().toLowerCase();
+    const ico = ext === "pdf" ? "file-text" : "image";
+    const kb = (f.size / 1024).toFixed(1);
+    if (pa) pa.innerHTML = `
+      <div class="file-preview">
+        <div class="fp-icon"><i data-lucide="${ico}" style="width:18px;height:18px;"></i></div>
+        <div><div class="fp-name">${f.name}</div><div class="fp-size">${kb} KB</div></div>
+      </div>`;
+    lucide.createIcons();
+  });
+}
+
+if (dz) {
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault(); dz.classList.remove("drag-over");
+    if (fi && e.dataTransfer.files.length) {
+      fi.files = e.dataTransfer.files;
+      fi.dispatchEvent(new Event("change"));
+    }
+  });
+}
+</script>
+{% endblock %}

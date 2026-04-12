@@ -1,0 +1,39 @@
+<div class="success-card fade-up">
+  <div class="success-ring">
+    <i data-lucide="ticket-check" style="width:28px;height:28px;"></i>
+  </div>
+
+  <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--teal);margin-bottom:0.35rem;">Check-in Successful</div>
+  <div style="font-size:1.15rem;font-weight:800;color:var(--text-1);margin-bottom:0.25rem;">{{ patient.full_name }}</div>
+  <div style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-3);margin-bottom:0.85rem;">{{ patient.reg_number }}</div>
+
+  <div class="success-ticket">{{ encounter.ticket_number }}</div>
+
+  <div style="font-size:0.78rem;color:var(--text-2);line-height:1.65;margin-bottom:1.5rem;">
+    Ticket created and pushed to the nurse queue.
+    {% if encounter.priority == 3 %}
+      <br><strong style="color:var(--red);">⚠ EMERGENCY PRIORITY</strong>
+    {% elif encounter.priority == 2 %}
+      <br><strong style="color:var(--amber);">⚡ Urgent</strong>
+    {% endif %}
+    <br>
+    <span style="font-size:0.68rem;color:var(--text-3);">{{ encounter.created_at|date:"H:i" }} — {{ today|date:"d M Y" }}</span>
+  </div>
+
+  <div style="display:flex;justify-content:center;gap:0.85rem;flex-wrap:wrap;">
+    <button class="btn-neo btn-teal btn-sm"
+      hx-get="{% url 'clinic:patient_search' %}?q="
+      hx-target="#search-result"
+      hx-swap="innerHTML"
+      onclick="document.getElementById('search-inp').value=''">
+      <i data-lucide="user-plus" style="width:13px;height:13px;"></i>
+      Next Patient
+    </button>
+    <button class="btn-neo btn-sm" onclick="window.print()">
+      <i data-lucide="printer" style="width:13px;height:13px;"></i>
+      Print Ticket
+    </button>
+  </div>
+</div>
+
+<script>toast("{{ patient.full_name }} — {{ encounter.ticket_number }}", "var(--teal)");</script>

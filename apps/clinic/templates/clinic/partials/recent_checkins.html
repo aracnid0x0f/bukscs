@@ -1,0 +1,22 @@
+{% if recent_encounters %}
+{% for encounter in recent_encounters %}
+<div class="recent-item">
+  <div class="ri-ava {% if encounter.priority == 3 %}emg{% elif encounter.priority == 2 %}urg{% endif %}">
+    {{ encounter.patient.initials }}
+  </div>
+  <div class="ri-info">
+    <div class="ri-name">{{ encounter.patient.full_name }}</div>
+    <div class="ri-reg">{{ encounter.patient.reg_number }}</div>
+  </div>
+  <div class="ri-right">
+    <div class="ri-lbl">Ticket ID</div>
+    <div class="ri-ticket">{{ encounter.ticket_number }}</div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div style="padding:1.5rem 0;text-align:center;font-size:0.78rem;color:var(--text-3);">
+  <i data-lucide="inbox" style="width:24px;height:24px;display:block;margin:0 auto 0.4rem;opacity:0.35;"></i>
+  No check-ins yet today
+</div>
+{% endif %}

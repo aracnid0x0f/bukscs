@@ -1,0 +1,263 @@
+{% extends "clinic/base.html" %}
+{% block title %}Staff Profile — BUK Clinic EMR{% endblock %}
+
+{% block content %}
+<style>
+.profile-grid{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  gap:1.5rem;
+  max-width:880px;
+}
+@media(max-width:700px){.profile-grid{grid-template-columns:1fr}}
+
+/* Left card */
+.profile-id-card{
+  background:var(--bg);box-shadow:var(--neo-md);border-radius:var(--r-xl);
+  padding:1.75rem 1.5rem;text-align:center;
+}
+.pic-ring{
+  width:100px;height:100px;border-radius:50%;
+  background:var(--bg);box-shadow:var(--neo-md);
+  margin:0 auto 1rem;overflow:hidden;position:relative;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.pic-ring img{width:100%;height:100%;object-fit:cover}
+.pic-initials{font-size:1.8rem;font-weight:800;color:var(--teal)}
+.pic-overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,0.35);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.2s;
+}
+.pic-ring:hover .pic-overlay{opacity:1}
+.staff-name{font-size:1.1rem;font-weight:800;color:var(--text-1);margin-bottom:0.25rem}
+.staff-id{
+  font-family:var(--font-mono);font-size:0.72rem;color:var(--teal);letter-spacing:0.06em;
+}
+.staff-role{font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-top:0.2rem}
+
+/* Metrics */
+.metrics-card{
+  background:var(--bg);box-shadow:var(--neo-sm);border-radius:var(--r-lg);
+  padding:1rem;margin-top:1rem;text-align:left;
+}
+.mc-title{
+  display:flex;align-items:center;gap:0.4rem;
+  font-size:0.78rem;font-weight:700;color:var(--text-2);margin-bottom:0.85rem;
+}
+.metrics-tiles{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem}
+.metric-tile{
+  background:var(--bg);box-shadow:var(--neo-sm);border-radius:var(--r-md);padding:0.75rem;
+}
+.mt-lbl{font-size:0.6rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3)}
+.mt-val{font-size:1.4rem;font-weight:800;color:var(--teal);line-height:1.1}
+.mt-sub{font-size:0.62rem;color:var(--green);margin-top:2px}
+
+/* Right panels */
+.panel-card{
+  background:var(--bg);box-shadow:var(--neo-md);border-radius:var(--r-xl);
+  padding:1.75rem;margin-bottom:1.5rem;
+}
+.panel-title{
+  display:flex;align-items:center;gap:0.6rem;
+  font-size:0.95rem;font-weight:800;color:var(--text-1);margin-bottom:1.25rem;
+}
+.panel-title i{color:var(--teal)}
+
+/* Field with icon */
+.field-with-icon{position:relative}
+.fwi-ico{
+  position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);
+  color:var(--text-3);pointer-events:none;
+}
+.neo-input-padded{
+  width:100%;background:var(--bg);box-shadow:var(--neo-inset-sm);
+  border:none;border-radius:var(--r-md);
+  padding:0.65rem 0.9rem 0.65rem 2.5rem;
+  font-size:0.82rem;color:var(--text-1);outline:none;transition:box-shadow 0.2s;
+  font-family:var(--font-mono);
+}
+.neo-input-padded:focus{box-shadow:var(--neo-inset),0 0 0 2px rgba(26,127,122,0.18)}
+
+.field-group{margin-bottom:0}
+
+/* Success/error banners */
+.success-banner{
+  display:flex;align-items:center;gap:0.55rem;
+  background:var(--green-light);box-shadow:var(--neo-inset-sm);border-radius:var(--r-md);
+  padding:0.7rem 1rem;font-size:0.8rem;color:var(--green);margin-bottom:1rem;
+}
+.error-banner-sm{
+  display:flex;align-items:center;gap:0.55rem;
+  background:var(--red-light);box-shadow:var(--neo-inset-sm);border-radius:var(--r-md);
+  padding:0.7rem 1rem;font-size:0.8rem;color:var(--red);margin-bottom:1rem;
+}
+</style>
+
+<div style="margin-bottom:1.5rem;">
+  <h1 style="font-size:1.5rem;font-weight:800;color:var(--text-1);letter-spacing:-0.02em;">Staff Profile</h1>
+  <p style="font-size:0.8rem;color:var(--teal);margin-top:0.2rem;">Manage your professional credentials and account security.</p>
+</div>
+
+<div class="profile-grid">
+
+  <!-- LEFT: Identity card -->
+  <div>
+    <div class="profile-id-card">
+      <div class="pic-ring" onclick="document.getElementById('photo-upload').click()">
+        {% if request.user.profile_photo %}
+          <img src="{{ request.user.profile_photo.url }}" alt="Profile photo">
+        {% else %}
+          <span class="pic-initials">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</span>
+        {% endif %}
+        <div class="pic-overlay">
+          <i data-lucide="camera" style="width:20px;height:20px;color:#fff;"></i>
+        </div>
+      </div>
+      <input type="file" id="photo-upload" style="display:none;" accept="image/*">
+
+      <div class="staff-name">{{ request.user.get_full_name }}</div>
+      <div class="staff-id">ID: BUK-{{ request.user.staff_id|default:request.user.id }}-RC</div>
+      <div class="staff-role">{{ request.user.get_role_display|default:"Receptionist" }} · Main Wing</div>
+
+      <!-- Metrics -->
+      <div class="metrics-card">
+        <div class="mc-title">
+          <i data-lucide="bar-chart-2" style="width:14px;height:14px;color:var(--teal);"></i>
+          Performance Metrics
+        </div>
+        <div class="metrics-tiles">
+          <div class="metric-tile">
+            <div class="mt-lbl">Total Check-ins</div>
+            <div class="mt-val">{{ checkins_total }}</div>
+            <div class="mt-sub">↑ All time</div>
+          </div>
+          <div class="metric-tile">
+            <div class="mt-lbl">Today</div>
+            <div class="mt-val">{{ checkins_today }}</div>
+            <div class="mt-sub" style="color:var(--teal);">Active session</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Forms -->
+  <div>
+
+    <!-- Account info -->
+    {% if profile_saved %}
+    <div class="success-banner">
+      <i data-lucide="check-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+      Profile information updated successfully.
+    </div>
+    {% endif %}
+
+    <div class="panel-card">
+      <div class="panel-title">
+        <i data-lucide="user-cog" style="width:18px;height:18px;"></i>
+        Account Information
+      </div>
+      <form method="POST" action="{% url 'clinic:profile' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+        <div class="form-grid-2" style="margin-bottom:1rem;">
+          <div>
+            <label class="field-lbl" for="id_first_name">Full Name</label>
+            <div class="field-with-icon">
+              <span class="fwi-ico"><i data-lucide="user" style="width:14px;height:14px;"></i></span>
+              <input class="neo-input-padded" type="text" name="first_name" id="id_first_name"
+                value="{{ request.user.first_name }}" placeholder="First name">
+            </div>
+          </div>
+          <div>
+            <label class="field-lbl" for="id_last_name">&nbsp;</label>
+            <input class="neo-input" type="text" name="last_name" id="id_last_name"
+              value="{{ request.user.last_name }}" placeholder="Last name">
+          </div>
+          <div>
+            <label class="field-lbl" for="id_staff_id">Staff ID</label>
+            <div class="field-with-icon">
+              <span class="fwi-ico"><i data-lucide="badge" style="width:14px;height:14px;"></i></span>
+              <input class="neo-input-padded" type="text" value="{{ request.user.staff_id|default:'' }}" readonly style="opacity:0.5;cursor:not-allowed;">
+            </div>
+          </div>
+          <div>
+            <label class="field-lbl" for="id_email">Email Address</label>
+            <div class="field-with-icon">
+              <span class="fwi-ico"><i data-lucide="mail" style="width:14px;height:14px;"></i></span>
+              <input class="neo-input-padded" type="email" name="email" id="id_email"
+                value="{{ request.user.email }}">
+            </div>
+          </div>
+          <div class="span-2">
+            <label class="field-lbl" for="id_phone">Phone Number</label>
+            <div class="field-with-icon">
+              <span class="fwi-ico"><i data-lucide="phone" style="width:14px;height:14px;"></i></span>
+              <input class="neo-input-padded" type="tel" name="phone_number" id="id_phone"
+                value="{{ request.user.phone_number|default:'' }}" placeholder="+234…">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn-neo btn-teal" style="width:100%;justify-content:center;">
+          <i data-lucide="save" style="width:14px;height:14px;"></i>
+          Save Profile Changes
+        </button>
+      </form>
+    </div>
+
+    <!-- Password management -->
+    {% if password_saved %}
+    <div class="success-banner">
+      <i data-lucide="shield-check" style="width:15px;height:15px;flex-shrink:0;"></i>
+      Password changed successfully.
+    </div>
+    {% endif %}
+    {% if password_error %}
+    <div class="error-banner-sm">
+      <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+      {{ password_error }}
+    </div>
+    {% endif %}
+
+    <div class="panel-card">
+      <div class="panel-title">
+        <i data-lucide="lock-keyhole" style="width:18px;height:18px;"></i>
+        Password Management
+      </div>
+      <form method="POST" action="{% url 'clinic:profile' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="change_password">
+        <div style="margin-bottom:1rem;">
+          <label class="field-lbl" for="id_current_pw">Current Password</label>
+          <input class="neo-input" type="password" name="current_password" id="id_current_pw" placeholder="············">
+          {% if password_form.current_password.errors %}
+          <div style="font-size:0.65rem;color:var(--red);margin-top:3px;">{{ password_form.current_password.errors.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="form-grid-2" style="margin-bottom:1rem;">
+          <div>
+            <label class="field-lbl" for="id_new_pw">New Password</label>
+            <input class="neo-input" type="password" name="new_password" id="id_new_pw" placeholder="Min 8 characters">
+            {% if password_form.new_password.errors %}
+            <div style="font-size:0.65rem;color:var(--red);margin-top:3px;">{{ password_form.new_password.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="field-lbl" for="id_confirm_pw">Confirm New Password</label>
+            <input class="neo-input" type="password" name="confirm_password" id="id_confirm_pw" placeholder="Repeat password">
+            {% if password_form.non_field_errors %}
+            <div style="font-size:0.65rem;color:var(--red);margin-top:3px;">{{ password_form.non_field_errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <button type="submit" class="btn-neo" style="width:100%;justify-content:center;">
+          <i data-lucide="key-round" style="width:14px;height:14px;"></i>
+          Update Password
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

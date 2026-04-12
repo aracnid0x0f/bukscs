@@ -1,0 +1,125 @@
+<!-- Waiting at Nurse -->
+<div class="qs-header">
+  <span class="qs-label">
+    <i data-lucide="activity" style="width:12px;height:12px;color:var(--green);"></i>
+    Waiting at Nurse
+  </span>
+  <span class="qs-count">{{ queue_stats.waiting_nurse }}</span>
+</div>
+
+{% with nurse_queue=recent_encounters %}
+{% for enc in nurse_queue %}
+{% if enc.status == 'RECEPTION' %}
+<div class="queue-ticket">
+  <div class="qt-reg">{{ enc.patient.reg_number }}</div>
+  <div class="qt-name">{{ enc.patient.full_name }}</div>
+  <div class="qt-meta">
+    <span class="qt-dot dot-green"></span>
+    Wait: {{ enc.created_at|timesince }}
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% if queue_stats.waiting_nurse == 0 %}
+<div class="no-active">No patients waiting</div>
+{% endif %}
+{% endwith %}
+
+<!-- In Consultation -->
+<div class="qs-header" style="margin-top:1rem;">
+  <span class="qs-label">
+    <i data-lucide="stethoscope" style="width:12px;height:12px;color:var(--blue);"></i>
+    In Consultation
+  </span>
+  <span class="qs-count" style="color:var(--blue);">{{ queue_stats.with_doctor }}</span>
+</div>
+
+{% for enc in recent_encounters %}
+{% if enc.status == 'CONSULTATION' %}
+<div class="queue-ticket">
+  <div class="qt-reg">{{ enc.patient.reg_number }}</div>
+  <div class="qt-name">{{ enc.patient.full_name }}</div>
+  <div class="qt-meta">
+    <span class="qt-dot dot-blue"></span>
+    {% if enc.doctor_assigned %}DR. {{ enc.doctor_assigned.last_name|upper }}{% else %}No doctor assigned{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% if queue_stats.with_doctor == 0 %}
+<div class="no-active">No active sessions</div>
+{% endif %}
+
+<!-- Lab Pending -->
+<div class="qs-header" style="margin-top:1rem;">
+  <span class="qs-label">
+    <i data-lucide="microscope" style="width:12px;height:12px;color:var(--amber);"></i>
+    Lab Pending
+  </span>
+  <span class="qs-count" style="color:var(--amber);">{{ queue_stats.in_lab }}</span>
+</div>
+
+{% for enc in recent_encounters %}
+{% if enc.status == 'LAB' %}
+<div class="queue-ticket">
+  <div class="qt-reg">{{ enc.patient.reg_number }}</div>
+  <div class="qt-name">{{ enc.patient.full_name }}</div>
+  <div class="qt-meta">
+    <span class="qt-dot dot-amber"></span>
+    Sampling
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% if queue_stats.in_lab == 0 %}
+<div class="no-active">No lab cases</div>
+{% endif %}
+
+<!-- Pharmacy -->
+<div class="qs-header" style="margin-top:1rem;">
+  <span class="qs-label">
+    <i data-lucide="pill" style="width:12px;height:12px;color:var(--text-3);"></i>
+    Pharmacy
+  </span>
+  <span class="qs-count">{{ queue_stats.at_pharmacy }}</span>
+</div>
+
+{% for enc in recent_encounters %}
+{% if enc.status == 'PHARMACY' %}
+<div class="queue-ticket">
+  <div class="qt-reg">{{ enc.patient.reg_number }}</div>
+  <div class="qt-name">{{ enc.patient.full_name }}</div>
+  <div class="qt-meta">
+    <span class="qt-dot dot-teal"></span>
+    Dispensing
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% if queue_stats.at_pharmacy == 0 %}
+<div class="no-active">No pharmacy queue</div>
+{% endif %}
+
+<!-- Clinic Pulse -->
+{% with total=queue_stats.waiting_nurse|add:queue_stats.with_doctor|add:queue_stats.in_lab|add:queue_stats.at_pharmacy %}
+<div class="clinic-pulse-card" style="margin-top:1rem;">
+  <div class="cp-label">Clinic Pulse</div>
+  {% if total == 0 %}
+  <div class="cp-val">Idle</div>
+  <div class="cp-sub">Queue clear</div>
+  {% elif total < 10 %}
+  <div class="cp-val">{{ queue_stats.with_doctor|add:queue_stats.closed_today }}%</div>
+  <div class="cp-sub">Efficiency</div>
+  {% else %}
+  <div class="cp-val">{{ total }}</div>
+  <div class="cp-sub">Total active</div>
+  {% endif %}
+  <div class="cp-bar">
+    {% if total > 0 %}
+    <div class="cp-fill" style="width:{% widthratio queue_stats.with_doctor total 100 %}%;"></div>
+    {% else %}
+    <div class="cp-fill" style="width:100%;"></div>
+    {% endif %}
+  </div>
+</div>
+{% endwith %}

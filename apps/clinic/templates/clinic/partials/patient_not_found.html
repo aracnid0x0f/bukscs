@@ -1,0 +1,14 @@
+<div class="not-found-card fade-up">
+  <div class="nf-icon-wrap">
+    <i data-lucide="user-x" style="width:24px;height:24px;"></i>
+  </div>
+  <h3 class="nf-title">No Student Found</h3>
+  <p class="nf-body">
+    No record matches <span class="q-chip">{{ query }}</span>.<br>
+    Would you like to register this student?
+  </p>
+  <a href="{% url 'clinic:register' %}" class="btn-neo btn-teal">
+    <i data-lucide="user-plus" style="width:15px;height:15px;"></i>
+    Register New Student
+  </a>
+</div>

@@ -1,0 +1,158 @@
+<div class="p-result-card fade-up">
+
+  <!-- Header -->
+  <div class="pr-header">
+    <div class="pr-avatar">
+      {% if patient.photo %}
+        <img src="{{ patient.photo.url }}" alt="{{ patient.initials }}">
+      {% else %}
+        {{ patient.initials }}
+      {% endif %}
+      <div class="pr-avatar-badge">
+        {% if active_encounter %}
+          <i data-lucide="activity" style="width:9px;height:9px;color:var(--amber);"></i>
+        {% else %}
+          <i data-lucide="check-circle" style="width:9px;height:9px;color:var(--green);"></i>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="pr-meta">
+      <div class="pr-found-label">
+        <i data-lucide="circle-dot" style="width:10px;height:10px;"></i>
+        Student Record Found
+      </div>
+      <div class="pr-name">{{ patient.display_name }}</div>
+      <div class="pr-reg">{{ patient.reg_number }}</div>
+      <div style="display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap;">
+        {% if patient.blood_group %}
+          <span class="badge badge-teal">{{ patient.blood_group }}{% if patient.genotype %} / {{ patient.genotype }}{% endif %}</span>
+        {% endif %}
+        {% if patient.level %}
+          <span class="badge badge-blue">{{ patient.level }}L</span>
+        {% endif %}
+        {% if patient.allergies %}
+          <span class="badge badge-red"><i data-lucide="triangle-alert" style="width:8px;height:8px;"></i>Allergies</span>
+        {% endif %}
+        {% if active_encounter %}
+          <span class="badge badge-amber"><i data-lucide="activity" style="width:8px;height:8px;"></i>Active Encounter</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Data tiles -->
+  <div class="data-tiles">
+    <div class="data-tile">
+      <div class="dt-label">Blood Group</div>
+      <div class="dt-value teal">{{ patient.blood_group|default:"—" }}</div>
+    </div>
+    <div class="data-tile">
+      <div class="dt-label">Faculty</div>
+      <div class="dt-value" style="font-size:0.85rem;">{{ patient.faculty|default:"—" }}</div>
+    </div>
+    <div class="data-tile">
+      <div class="dt-label">Current Level</div>
+      <div class="dt-value teal">{% if patient.level %}{{ patient.level }}L{% else %}—{% endif %}</div>
+    </div>
+    <div class="data-tile">
+      <div class="dt-label">Department</div>
+      <div class="dt-value" style="font-size:0.85rem;">{{ patient.department|default:"—" }}</div>
+    </div>
+    <div class="data-tile">
+      <div class="dt-label">Clinic Code</div>
+      <div class="dt-value teal" style="font-family:var(--font-mono);">{{ patient.clinic_code }}</div>
+    </div>
+    <div class="data-tile">
+      <div class="dt-label">Total Visits</div>
+      <div class="dt-value teal">{{ patient.visit_count }}</div>
+    </div>
+  </div>
+
+  <!-- Allergy alert -->
+  {% if patient.allergies %}
+  <div class="alert-strip alert-red" style="margin-bottom:0.85rem;">
+    <i data-lucide="triangle-alert" style="width:15px;height:15px;flex-shrink:0;"></i>
+    <div><strong>Allergies:</strong> {{ patient.allergies }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Active encounter warning -->
+  {% if active_encounter %}
+  <div class="alert-strip alert-blue" style="margin-bottom:0.85rem;">
+    <i data-lucide="ticket" style="width:15px;height:15px;flex-shrink:0;"></i>
+    <div>
+      Patient has an open ticket: <strong>{{ active_encounter.ticket_number }}</strong>
+      — {{ active_encounter.get_status_display }}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if checkin_error %}
+  <div class="alert-strip alert-red" style="margin-bottom:0.85rem;">
+    <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+    {{ checkin_error }}
+  </div>
+  {% endif %}
+
+  <!-- Check-in form (only when no active encounter) -->
+  {% if not active_encounter and not checkin_error %}
+  <form
+    hx-post="{% url 'clinic:checkin_patient' patient.pk %}"
+    hx-target="#search-result"
+    hx-swap="innerHTML"
+  >
+    {% csrf_token %}
+    <div class="prio-row" style="margin-bottom:0.85rem;">
+      <span class="prio-lbl">Priority</span>
+      <input type="radio" name="priority" id="prio-1" value="1" class="prio-r" checked>
+      <label for="prio-1">Normal</label>
+      <input type="radio" name="priority" id="prio-2" value="2" class="prio-r">
+      <label for="prio-2">Urgent</label>
+      <input type="radio" name="priority" id="prio-3" value="3" class="prio-r">
+      <label for="prio-3">Emergency</label>
+    </div>
+    <div class="action-row">
+      <button type="submit" class="btn-neo btn-teal btn-lg" style="flex:1;justify-content:center;">
+        <i data-lucide="ticket-check" style="width:16px;height:16px;"></i>
+        Create Ticket &amp; Check-in
+      </button>
+      <button type="button" class="btn-neo btn-sm" onclick="toast('Full EMR history — coming soon', 'var(--teal)')" title="View Full History">
+        <i data-lucide="history" style="width:14px;height:14px;"></i>
+        View Full History
+      </button>
+    </div>
+  </form>
+  {% endif %}
+
+</div>
+
+<!-- Bottom info tiles -->
+<div class="bottom-tiles">
+  <div class="info-tile">
+    <div class="info-tile-ico">
+      <i data-lucide="clock-4" style="width:16px;height:16px;color:var(--teal);"></i>
+    </div>
+    <div>
+      <div class="info-tile-lbl">Last Visit</div>
+      <div class="info-tile-val">
+        {% if patient.last_visit %}
+          {{ patient.last_visit.created_at|date:"d M Y" }}
+        {% else %}
+          First visit
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="info-tile">
+    <div class="info-tile-ico">
+      <i data-lucide="triangle-alert" style="width:16px;height:16px;color:{% if patient.allergies %}var(--red){% else %}var(--text-3){% endif %};"></i>
+    </div>
+    <div>
+      <div class="info-tile-lbl">Allergies</div>
+      <div class="info-tile-val" style="{% if patient.allergies %}color:var(--red){% endif %}">
+        {{ patient.allergies|default:"None Disclosed" }}
+      </div>
+    </div>
+  </div>
+</div>

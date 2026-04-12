@@ -1,259 +1,383 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
+"""
+clinic/views.py
+All views scoped to the receptionist. Every action stays within the dashboard.
+"""
+import json
+import re
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .models import Encounter, Patient
-from apps.pharmacy.models import Medicine
-from .tasks import notify_department_queue
+from .forms import (
+    PatientRegistrationForm, SIFUploadForm,
+    ReceptionistProfileForm, PasswordChangeForm,
+)
 
-# Create your views here.
 
-## Receptionist views
-def receptionist_dashboard(request):
-    query = request.GET.get("search", "")
-    patient = None
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-    if query:
-        # Search by Reg Number or Clinic Number
-        patient = (
-            Patient.objects.filter(reg_number__iexact=query).first()
-            or Patient.objects.filter(clinic_code=query).first()
-        )
+def _require_receptionist(request):
+    """Raise PermissionDenied if the logged-in user is not a receptionist."""
+    if not request.user.is_authenticated:
+        return False
+    role = getattr(request.user, "role", "")
+    return role in ("RECEPTIONIST", "ADMIN")
 
-        if not patient:
-            messages.info(
-                request, f"No record found for '{query}'. Please register the student."
-            )
 
-    return render(
-        request, "clinic/receptionist_dash.html", {"patient": patient, "query": query}
+def _queue_stats():
+    today = timezone.now().date()
+    return {
+        "waiting_nurse":  Encounter.objects.filter(status=Encounter.Status.RECEPTION).count(),
+        "with_doctor":    Encounter.objects.filter(status=Encounter.Status.CONSULTATION).count(),
+        "in_lab":         Encounter.objects.filter(status=Encounter.Status.LABORATORY).count(),
+        "at_pharmacy":    Encounter.objects.filter(status=Encounter.Status.PHARMACY).count(),
+        "closed_today":   Encounter.objects.filter(status=Encounter.Status.CLOSED, closed_at__date=today).count(),
+        "emergency":      Encounter.objects.filter(status=Encounter.Status.EMERGENCY).count(),
+    }
+
+
+def _recent_encounters():
+    today = timezone.now().date()
+    return (
+        Encounter.objects
+        .select_related("patient")
+        .filter(created_at__date=today)
+        .exclude(status=Encounter.Status.CLOSED)
+        .order_by("-priority", "created_at")[:15]
     )
 
 
-def register_student(request):
-    if request.method == "POST":
-        # Capture the 3 names as requested
-        new_patient = Patient.objects.create(
-            first_name=request.POST.get("first_name"),
-            middle_name=request.POST.get("middle_name"),
-            last_name=request.POST.get("last_name"),
-            reg_number=request.POST.get("reg_number"),
-            faculty=request.POST.get("faculty"),
-            department=request.POST.get("department"),
-            gender=request.POST.get("gender"),
-            date_of_birth=request.POST.get("dob"),
-        )
-        messages.success(request, f"Registered! Clinic ID: {new_patient.clinic_code}")
-        return redirect("receptionist_dashboard")
+def _extract_sif_fields(document_file):
+    """
+    Attempt lightweight text extraction from a SIF document.
+    Works on plain-text-layer PDFs. Returns a dict of prefill values.
+    We use pdfplumber if available, otherwise return empty dict.
+    """
+    prefill = {}
+    name = document_file.name.lower()
 
-    return render(request, "clinic/register_student.html")
-
-
-def create_encounter(request, patient_id):
-    if request.method == "POST":
-        patient = get_object_or_404(Patient, id=patient_id)
-
-        # Check if they already have an active ticket
-        active_ticket = Encounter.objects.filter(
-            patient=patient, status__exclude="CLOSED"
-        ).exists()
-
-        if active_ticket:
-            messages.error(request, "This student already has an active session.")
+    try:
+        if name.endswith(".pdf"):
+            import pdfplumber
+            document_file.seek(0)
+            with pdfplumber.open(document_file) as pdf:
+                text = "\n".join(p.extract_text() or "" for p in pdf.pages)
         else:
-            # Create the Ticket
-            Encounter.objects.create(patient=patient, status="RECEPTION")
-            messages.success(
-                request, f"Ticket created for {patient.full_name}. Sent to Nursing."
-            )
+            # For images, OCR would be needed — return empty for now
+            return prefill
 
-        return redirect("receptionist_dashboard")
+        # BUK reg number pattern  e.g. BUK/21/MED/0042 or SCI/19/COM/0001
+        m = re.search(r"[A-Z]{2,4}/\d{2}/[A-Z]{2,5}/\d{3,5}", text, re.I)
+        if m:
+            prefill["reg_number"] = m.group(0).upper()
+
+        # Phone  +234XXXXXXXXXX or 0XXXXXXXXXX
+        m = re.search(r"(\+?234[\s-]?\d{3}[\s-]?\d{3}[\s-]?\d{4}|0\d{10})", text)
+        if m:
+            prefill["phone_number"] = re.sub(r"[\s-]", "", m.group(0))
+
+        # Email
+        m = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)
+        if m:
+            prefill["email"] = m.group(0)
+
+        # Faculty / Department — look for common label patterns
+        for label, key in [("Faculty", "faculty"), ("Department", "department")]:
+            m = re.search(rf"{label}[:\s]+([A-Za-z &/]+)", text, re.I)
+            if m:
+                prefill[key] = m.group(1).strip()[:100]
+
+        # Level
+        m = re.search(r"\b(100|200|300|400|500|600)\s*[Ll]evel", text)
+        if m:
+            prefill["level"] = int(m.group(1))
+
+    except Exception:
+        pass
+
+    return prefill
 
 
-def consultation_detail(request, visit_id):
-    encounter = get_object_or_404(Encounter, visit_id=visit_id)
-    medicines = Medicine.objects.all()  # To populate the prescription section
+# ─── Auth ─────────────────────────────────────────────────────────────────────
 
+def login_view(request):
+    error = None
     if request.method == "POST":
-        encounter.chief_complaint = request.POST.get("complaint")
-        encounter.clinical_notes = request.POST.get("notes")
-        encounter.diagnosis = request.POST.get("diagnosis")
+        staff_id = request.POST.get("staff_id", "").strip()
+        password = request.POST.get("password", "")
 
-        # Determine next destination
-        action = request.POST.get("next_step")
-        if action == "lab":
-            encounter.status = "LAB"
-        else:
-            encounter.status = "PHARMACY"
+        # USERNAME_FIELD is email, so we look up the user by staff_id first
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        try:
+            user_obj = UserModel.objects.get(staff_id=staff_id)
+            user = authenticate(request, username=user_obj.email, password=password)
+        except UserModel.DoesNotExist:
+            user = None
 
-        encounter.save()
-        messages.success(
-            request, f"Consultation for {encounter.patient.full_name} completed."
-        )
-        return redirect("doctor_list")
-
-    return render(
-        request,
-        "clinic/doctor_detail.html",
-        {"encounter": encounter, "medicines": medicines},
-    )
+        if user and user.is_active:
+            login(request, user)
+            return redirect("clinic:search")
+        error = "Invalid staff ID or password. Please try again."
+    return render(request, "login.html", {"error": error})
 
 
-def check_in_patient(request, patient_id):
-    patient = Patient.objects.get(id=patient_id)
+def logout_view(request):
+    logout(request)
+    return redirect("clinic:login")
 
-    # Create the Encounter (The "Ticket")
+
+# ─── Dashboard shell guard ─────────────────────────────────────────────────────
+
+def _ctx(request):
+    """Base context injected into every receptionist view."""
+    return {
+        "queue_stats":     _queue_stats(),
+        "recent_encounters": _recent_encounters(),
+        "today": timezone.now().date(),
+    }
+
+
+# ─── Search / Check-in ────────────────────────────────────────────────────────
+
+@login_required(login_url="clinic:login")
+def search_view(request):
+    if not _require_receptionist(request):
+        raise PermissionDenied
+    ctx = _ctx(request)
+    ctx["active_nav"] = "search"
+    return render(request, "clinic/search.html", ctx)
+
+
+@login_required(login_url="clinic:login")
+@login_required(login_url="clinic:login")
+@require_GET
+def patient_search_htmx(request):
+    """HTMX partial: search patient by reg_number, clinic_code, or full name."""
+    q = request.GET.get("q", "").strip()
+
+    if len(q) < 2:
+        return render(request, "clinic/partials/search_hint.html", {"query": q})
+
+    from django.db.models import Q
+    patient = Patient.objects.filter(
+        Q(reg_number__icontains=q) |
+        Q(clinic_code__iexact=q) |
+        Q(first_name__icontains=q) |
+        Q(last_name__icontains=q)
+    ).first()
+
+    if patient:
+        active_encounter = patient.encounters.exclude(status=Encounter.Status.CLOSED).first()
+        return render(request, "clinic/partials/patient_card.html", {
+            "patient": patient,
+            "active_encounter": active_encounter,
+        })
+
+    return render(request, "clinic/partials/patient_not_found.html", {"query": q})
+
+
+@login_required(login_url="clinic:login")
+@require_POST
+def checkin_patient(request, patient_id):
+    """HTMX POST: create an Encounter ticket and push to nurse queue."""
+    if not _require_receptionist(request):
+        raise PermissionDenied
+
+    patient = get_object_or_404(Patient, pk=patient_id)
+
+    if patient.has_active_encounter:
+        active = patient.encounters.exclude(status=Encounter.Status.CLOSED).first()
+        return render(request, "clinic/partials/patient_card.html", {
+            "patient": patient,
+            "active_encounter": active,
+            "checkin_error": "Patient already has an open ticket.",
+        })
+
+    priority = int(request.POST.get("priority", Encounter.Priority.NORMAL))
     encounter = Encounter.objects.create(
         patient=patient,
-        status="RECEPTION",  # Start of the flow
-        priority=request.POST.get("priority", 1),
+        status=Encounter.Status.RECEPTION,
+        priority=priority,
+        checked_in_by=request.user,
     )
 
-    notify_department_queue(encounter_id=encounter.id, department="NURSING")
+    try:
+        from .tasks import notify_department_queue
+        notify_department_queue.delay(str(encounter.visit_id), "NURSE")
+    except Exception:
+        pass
 
-    messages.success(
-        request, f"Ticket generated for {patient.last_name}. Proceed to Nursing Triage."
-    )
-    return redirect("receptionist_dashboard")
+    response = render(request, "clinic/partials/checkin_success.html", {
+        "patient": patient,
+        "encounter": encounter,
+        "today": timezone.now().date(),
+    })
+    response["HX-Trigger"] = json.dumps({"refreshQueue": True, "refreshRecent": True})
+    return response
 
 
-def emergency_protocol(request):
+# ─── Register Patient ─────────────────────────────────────────────────────────
+
+@login_required(login_url="clinic:login")
+def register_view(request):
     """
-    Handles immediate emergency flagging.
-    In a production EMR, this would trigger a WebSocket or push notification
-    to the Nurse/Doctor dashboards.
+    Two-step registration page:
+      GET  → empty form + SIF upload
+      POST with action=upload_sif → save file, extract fields, return pre-filled form
+      POST with action=submit_registration → validate & save patient
     """
-    # 1. Create a placeholder or anonymous visit if no patient is selected
-    # or redirect to a quick-registration form.
-    # For now, let's trigger a system-wide alert or redirect to a high-priority form.
+    if not _require_receptionist(request):
+        raise PermissionDenied
+
+    ctx = _ctx(request)
+    ctx["active_nav"] = "register"
+    ctx["sif_form"] = SIFUploadForm()
+    ctx["reg_form"] = PatientRegistrationForm()
+    ctx["prefill"] = {}
 
     if request.method == "POST":
-        # Logic to handle a specific emergency patient if ID is provided
-        patient_id = request.POST.get("patient_id")
+        action = request.POST.get("action", "")
 
-        if patient_id:
-            try:
-                patient = Patient.objects.get(id=patient_id)
-                Encounter.objects.create(
-                    patient=patient,
-                    status="EMERGENCY",  # Ensure this status exists in your Model choices
-                    check_in_time=timezone.now(),
-                    priority_level=3,  # 1=Normal, 2=Urgent, 3=Emergency
-                )
-                messages.error(
-                    request,
-                    f"EMERGENCY TICKET CREATED for {patient.last_name} {patient.first_name}. Patient moved to top of Nurse queue.",
-                )
+        # ── Step 1: SIF upload + extraction ──
+        if action == "upload_sif":
+            sif_form = SIFUploadForm(request.POST, request.FILES)
+            if sif_form.is_valid():
+                doc = request.FILES["sif_document"]
+                prefill = _extract_sif_fields(doc)
+                # Store file temporarily in session for step 2
+                # We'll re-attach it when saving
+                ctx["sif_form"] = sif_form
+                ctx["reg_form"] = PatientRegistrationForm(initial=prefill)
+                ctx["prefill"] = prefill
+                ctx["sif_uploaded"] = True
+                # Store filename in session for display
+                request.session["pending_sif_name"] = doc.name
+                # Save file to a temp location using Django's default storage
+                from django.core.files.storage import default_storage
+                tmp_path = default_storage.save(f"patients/sif/tmp_{doc.name}", doc)
+                request.session["pending_sif_path"] = tmp_path
+            else:
+                ctx["sif_form"] = sif_form
+            return render(request, "clinic/register.html", ctx)
 
-            except Patient.DoesNotExist:
-                messages.warning(
-                    request,
-                    "Patient record not found. Proceeding with Anonymous Emergency Protocol.",
-                )
+        # ── Step 2: Full registration submission ──
+        if action == "submit_registration":
+            reg_form = PatientRegistrationForm(request.POST, request.FILES)
+            if reg_form.is_valid():
+                patient = reg_form.save(commit=False)
+                # Attach the previously uploaded SIF document
+                sif_path = request.session.pop("pending_sif_path", None)
+                if sif_path:
+                    patient.sif_document = sif_path
+                patient.save()
+                # Clean session
+                request.session.pop("pending_sif_name", None)
+                ctx["reg_form"] = PatientRegistrationForm()
+                ctx["sif_form"] = SIFUploadForm()
+                ctx["registered_patient"] = patient
+            else:
+                ctx["reg_form"] = reg_form
+                ctx["sif_uploaded"] = bool(request.session.get("pending_sif_path"))
+                ctx["sif_form"] = SIFUploadForm()
+            return render(request, "clinic/register.html", ctx)
 
-        # If no patient ID, we log a "General Emergency" to notify staff
-        else:
-            messages.error(
-                request,
-                "GENERAL EMERGENCY ALERT INITIATED. Medical team has been notified.",
-            )
-
-    return redirect("receptionist_dashboard")
-
-
-## Nurse views
-def nurse_dashboard(request):
-    """
-    Renders the Nurse Dashboard with the current queue.
-    Filters for Encounters awaiting vitals (RECEPTION) or Emergency cases.
-    """
-    pending_visits = Encounter.objects.filter(
-        status__in=[Encounter.Status.RECEPTION, Encounter.Status.EMERGENCY]
-    )
-
-    active_visit_id = request.GET.get("visit_id")
-    active_visit = None
-    if active_visit_id:
-        try:
-            active_visit = Encounter.objects.get(visit_id=active_visit_id)
-        except Encounter.DoesNotExist:
-            pass
-
-    context = {
-        "pending_visits": pending_visits,
-        "active_visit": active_visit,
-        "pending_count": pending_visits.count(),
-        "status_choices": Encounter.Status,
-    }
-    return render(request, "clinic/nurse_dashboard.html", context)
+    return render(request, "clinic/register.html", ctx)
 
 
-def submit_vitals(request, visit_id):
-    """
-    Interaction view: Processes the vitals form and moves the
-    Encounter from RECEPTION to TRIAGE (Awaiting Consultation).
-    """
+# ─── Profile ──────────────────────────────────────────────────────────────────
+
+@login_required(login_url="clinic:login")
+def profile_view(request):
+    if not _require_receptionist(request):
+        raise PermissionDenied
+
+    user = request.user
+    profile_form  = ReceptionistProfileForm(instance=user)
+    password_form = PasswordChangeForm()
+    profile_saved  = False
+    password_saved = False
+    password_error = None
+
     if request.method == "POST":
-        encounter = get_object_or_404(Encounter, visit_id=visit_id)
+        action = request.POST.get("action", "")
 
-        encounter.temperature = request.POST.get("temperature")
-        encounter.weight = request.POST.get("weight")
-        encounter.blood_pressure = request.POST.get("blood_pressure")
-        encounter.heart_rate = request.POST.get("heart_rate")
-        encounter.spo2 = request.POST.get("spo2")
-        encounter.triage_notes = request.POST.get("triage_notes")
+        if action == "update_profile":
+            profile_form = ReceptionistProfileForm(request.POST, instance=user)
+            if profile_form.is_valid():
+                profile_form.save()
+                profile_saved = True
 
-        status_value = request.POST.get("status")
-        if status_value == "emergency":
-            encounter.status = Encounter.Status.EMERGENCY
-            encounter.priority = 3
-        elif status_value == "triaged":
-            encounter.status = Encounter.Status.TRIAGE
+        elif action == "change_password":
+            password_form = PasswordChangeForm(request.POST)
+            if password_form.is_valid():
+                if user.check_password(password_form.cleaned_data["current_password"]):
+                    user.set_password(password_form.cleaned_data["new_password"])
+                    user.save()
+                    # Re-authenticate to keep session alive
+                    from django.contrib.auth import update_session_auth_hash
+                    update_session_auth_hash(request, user)
+                    password_saved = True
+                    password_form = PasswordChangeForm()
+                else:
+                    password_error = "Current password is incorrect."
 
-        priority = request.POST.get("priority")
-        if priority:
-            encounter.priority = int(priority)
+    ctx = _ctx(request)
+    ctx.update({
+        "active_nav":     "profile",
+        "profile_form":   profile_form,
+        "password_form":  password_form,
+        "profile_saved":  profile_saved,
+        "password_saved": password_saved,
+        "password_error": password_error,
+        # Performance stats
+        "checkins_today": Encounter.objects.filter(
+            checked_in_by=user,
+            created_at__date=timezone.now().date()
+        ).count(),
+        "checkins_total": Encounter.objects.filter(checked_in_by=user).count(),
+    })
+    return render(request, "clinic/profile.html", ctx)
 
-        encounter.save()
 
-        messages.success(
-            request,
-            f"Vitals for {encounter.patient.first_name} captured. Moved to Triage.",
+# ─── Emergency Mode ───────────────────────────────────────────────────────────
+
+@login_required(login_url="clinic:login")
+@require_POST
+def emergency_mode(request):
+    """Notify the system of a clinic emergency via RabbitMQ/Celery."""
+    if not _require_receptionist(request):
+        raise PermissionDenied
+    try:
+        from .tasks import broadcast_emergency
+        broadcast_emergency.delay(
+            triggered_by=request.user.get_full_name() or request.user.username,
+            note=request.POST.get("note", "Emergency flagged at reception."),
         )
-        return redirect("nurse_dashboard")
+        return JsonResponse({"status": "ok", "message": "Emergency alert broadcast."})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
-def triage_list(request):
-    # Only show students who have been checked in by reception but haven't seen a nurse
-    queue = Encounter.objects.filter(status="RECEPTION").order_by(
-        "-priority", "created_at"
-    )
-    return render(request, "clinic/triage_list.html", {"queue": queue})
+# ─── HTMX Polling Partials ────────────────────────────────────────────────────
+
+@login_required(login_url="clinic:login")
+@require_GET
+def queue_stats_partial(request):
+    return render(request, "clinic/partials/queue_stats.html", {"queue_stats": _queue_stats()})
 
 
-def triage_detail(request, visit_id):
-    encounter = get_object_or_404(Encounter, visit_id=visit_id)
-
-    if request.method == "POST":
-        encounter.temperature = request.POST.get("temp")
-        encounter.blood_pressure = request.POST.get("bp")
-        encounter.weight = request.POST.get("weight")
-        # Move the ticket to the next desk
-        encounter.status = "TRIAGE"
-        encounter.save()
-        messages.success(
-            request,
-            f"Vitals recorded for {encounter.patient.full_name}. Sent to Doctor.",
-        )
-        return redirect("triage_list")
-
-    return render(request, "clinic/triage_detail.html", {"encounter": encounter})
+@login_required(login_url="clinic:login")
+@require_GET
+def recent_checkins_partial(request):
+    return render(request, "clinic/partials/recent_checkins.html", {
+        "recent_encounters": _recent_encounters(),
+    })
 
 
-## Doctor views
-def doctor_list(request):
-    # Queue for patients ready for consultation
-    queue = Encounter.objects.filter(status="TRIAGE").order_by(
-        "-priority", "created_at"
-    )
-    return render(request, "clinic/doctor_list.html", {"queue": queue})
+# TODO: 1. create a STAFF ID generator

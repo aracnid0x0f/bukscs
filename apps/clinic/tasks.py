@@ -1,29 +1,36 @@
+"""
+clinic/tasks.py
+Celery async tasks for the clinic app.
+"""
+
 from celery import shared_task
-import time
 
-from .models  import Encounter, Patient
 
-@shared_task
-def notify_department_queue(encounter_id, department):
+@shared_task(bind=True, max_retries=3)
+def notify_department_queue(self, visit_id: str, department: str):
+    """
+    Push an encounter ticket to the appropriate department queue via RabbitMQ.
+    The department consumers (Nurse, Doctor, etc.) will pick this up.
+    """
     try:
-        encounter = Encounter.objects.get(id=encounter_id)
-        patient_name = f"{encounter.patient.last_name}, {encounter.patient.first_name}"
-        
-        # In a real scenario, this would trigger a WebSocket push
-        print(f"--- RABBITMQ NOTIFICATION ---")
-        print(f"TARGET: {department}")
-        print(f"PATIENT: {patient_name}")
-        print(f"CLINIC ID: {encounter.patient.clinic_code}")
-        print(f"-----------------------------")
-        
-        return True
-    except Encounter.DoesNotExist:
-        return False
+        from .models import Encounter
+
+        encounter = Encounter.objects.select_related("patient").get(visit_id=visit_id)
+        # TODO: publish to RabbitMQ exchange keyed by department
+        # For now, log the event
+        print(
+            f"[QUEUE] Ticket {encounter.ticket_number} → {department} | "
+            f"Patient: {encounter.patient.reg_number} | Priority: {encounter.priority}"
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=5)
+
 
 @shared_task
-def generate_visit_summary(encounter_id):
+def broadcast_emergency(triggered_by: str, note: str):
     """
-    Heavy task: Generates a PDF summary of the visit once closed.
+    Broadcast an emergency alert to all active staff sessions.
+    Publishes to a fanout exchange so every logged-in role sees it.
     """
-    time.sleep(5) # Simulate heavy PDF generation
-    print(f"PDF Generated for Encounter {encounter_id}")
+    print(f"[EMERGENCY] Triggered by {triggered_by}: {note}")
+    # TODO: publish to RabbitMQ fanout exchange 'clinic.emergency'
