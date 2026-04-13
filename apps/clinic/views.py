@@ -2,6 +2,7 @@
 clinic/views.py
 All views scoped to the receptionist. Every action stays within the dashboard.
 """
+
 import json
 import re
 from django.contrib.auth import authenticate, login, logout
@@ -14,12 +15,15 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from .models import Encounter, Patient
 from .forms import (
-    PatientRegistrationForm, SIFUploadForm,
-    ReceptionistProfileForm, PasswordChangeForm,
+    PatientRegistrationForm,
+    SIFUploadForm,
+    ReceptionistProfileForm,
+    PasswordChangeForm,
 )
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _require_receptionist(request):
     """Raise PermissionDenied if the logged-in user is not a receptionist."""
@@ -32,20 +36,29 @@ def _require_receptionist(request):
 def _queue_stats():
     today = timezone.now().date()
     return {
-        "waiting_nurse":  Encounter.objects.filter(status=Encounter.Status.RECEPTION).count(),
-        "with_doctor":    Encounter.objects.filter(status=Encounter.Status.CONSULTATION).count(),
-        "in_lab":         Encounter.objects.filter(status=Encounter.Status.LABORATORY).count(),
-        "at_pharmacy":    Encounter.objects.filter(status=Encounter.Status.PHARMACY).count(),
-        "closed_today":   Encounter.objects.filter(status=Encounter.Status.CLOSED, closed_at__date=today).count(),
-        "emergency":      Encounter.objects.filter(status=Encounter.Status.EMERGENCY).count(),
+        "waiting_nurse": Encounter.objects.filter(
+            status=Encounter.Status.RECEPTION
+        ).count(),
+        "with_doctor": Encounter.objects.filter(
+            status=Encounter.Status.CONSULTATION
+        ).count(),
+        "in_lab": Encounter.objects.filter(status=Encounter.Status.LABORATORY).count(),
+        "at_pharmacy": Encounter.objects.filter(
+            status=Encounter.Status.PHARMACY
+        ).count(),
+        "closed_today": Encounter.objects.filter(
+            status=Encounter.Status.CLOSED, closed_at__date=today
+        ).count(),
+        "emergency": Encounter.objects.filter(
+            status=Encounter.Status.EMERGENCY
+        ).count(),
     }
 
 
 def _recent_encounters():
     today = timezone.now().date()
     return (
-        Encounter.objects
-        .select_related("patient")
+        Encounter.objects.select_related("patient")
         .filter(created_at__date=today)
         .exclude(status=Encounter.Status.CLOSED)
         .order_by("-priority", "created_at")[:15]
@@ -64,6 +77,7 @@ def _extract_sif_fields(document_file):
     try:
         if name.endswith(".pdf"):
             import pdfplumber
+
             document_file.seek(0)
             with pdfplumber.open(document_file) as pdf:
                 text = "\n".join(p.extract_text() or "" for p in pdf.pages)
@@ -105,6 +119,7 @@ def _extract_sif_fields(document_file):
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
+
 def login_view(request):
     error = None
     if request.method == "POST":
@@ -113,6 +128,7 @@ def login_view(request):
 
         # USERNAME_FIELD is email, so we look up the user by staff_id first
         from django.contrib.auth import get_user_model
+
         UserModel = get_user_model()
         try:
             user_obj = UserModel.objects.get(staff_id=staff_id)
@@ -121,8 +137,13 @@ def login_view(request):
             user = None
 
         if user and user.is_active:
-            login(request, user)
-            return redirect("clinic:search")
+            if user.role in ("NURSE",):
+                login(request, user)
+                return redirect("clinic:nurse_queue")
+            else:
+                login(request, user)
+                return redirect("clinic:search")
+
         error = "Invalid staff ID or password. Please try again."
     return render(request, "login.html", {"error": error})
 
@@ -134,16 +155,18 @@ def logout_view(request):
 
 # ─── Dashboard shell guard ─────────────────────────────────────────────────────
 
+
 def _ctx(request):
     """Base context injected into every receptionist view."""
     return {
-        "queue_stats":     _queue_stats(),
+        "queue_stats": _queue_stats(),
         "recent_encounters": _recent_encounters(),
         "today": timezone.now().date(),
     }
 
 
 # ─── Search / Check-in ────────────────────────────────────────────────────────
+
 
 @login_required(login_url="clinic:login")
 def search_view(request):
@@ -165,19 +188,26 @@ def patient_search_htmx(request):
         return render(request, "clinic/partials/search_hint.html", {"query": q})
 
     from django.db.models import Q
+
     patient = Patient.objects.filter(
-        Q(reg_number__icontains=q) |
-        Q(clinic_code__iexact=q) |
-        Q(first_name__icontains=q) |
-        Q(last_name__icontains=q)
+        Q(reg_number__icontains=q)
+        | Q(clinic_code__iexact=q)
+        | Q(first_name__icontains=q)
+        | Q(last_name__icontains=q)
     ).first()
 
     if patient:
-        active_encounter = patient.encounters.exclude(status=Encounter.Status.CLOSED).first()
-        return render(request, "clinic/partials/patient_card.html", {
-            "patient": patient,
-            "active_encounter": active_encounter,
-        })
+        active_encounter = patient.encounters.exclude(
+            status=Encounter.Status.CLOSED
+        ).first()
+        return render(
+            request,
+            "clinic/partials/patient_card.html",
+            {
+                "patient": patient,
+                "active_encounter": active_encounter,
+            },
+        )
 
     return render(request, "clinic/partials/patient_not_found.html", {"query": q})
 
@@ -193,11 +223,15 @@ def checkin_patient(request, patient_id):
 
     if patient.has_active_encounter:
         active = patient.encounters.exclude(status=Encounter.Status.CLOSED).first()
-        return render(request, "clinic/partials/patient_card.html", {
-            "patient": patient,
-            "active_encounter": active,
-            "checkin_error": "Patient already has an open ticket.",
-        })
+        return render(
+            request,
+            "clinic/partials/patient_card.html",
+            {
+                "patient": patient,
+                "active_encounter": active,
+                "checkin_error": "Patient already has an open ticket.",
+            },
+        )
 
     priority = int(request.POST.get("priority", Encounter.Priority.NORMAL))
     encounter = Encounter.objects.create(
@@ -209,20 +243,26 @@ def checkin_patient(request, patient_id):
 
     try:
         from .tasks import notify_department_queue
+
         notify_department_queue.delay(str(encounter.visit_id), "NURSE")
     except Exception:
         pass
 
-    response = render(request, "clinic/partials/checkin_success.html", {
-        "patient": patient,
-        "encounter": encounter,
-        "today": timezone.now().date(),
-    })
+    response = render(
+        request,
+        "clinic/partials/checkin_success.html",
+        {
+            "patient": patient,
+            "encounter": encounter,
+            "today": timezone.now().date(),
+        },
+    )
     response["HX-Trigger"] = json.dumps({"refreshQueue": True, "refreshRecent": True})
     return response
 
 
 # ─── Register Patient ─────────────────────────────────────────────────────────
+
 
 @login_required(login_url="clinic:login")
 def register_view(request):
@@ -260,6 +300,7 @@ def register_view(request):
                 request.session["pending_sif_name"] = doc.name
                 # Save file to a temp location using Django's default storage
                 from django.core.files.storage import default_storage
+
                 tmp_path = default_storage.save(f"patients/sif/tmp_{doc.name}", doc)
                 request.session["pending_sif_path"] = tmp_path
             else:
@@ -292,15 +333,16 @@ def register_view(request):
 
 # ─── Profile ──────────────────────────────────────────────────────────────────
 
+
 @login_required(login_url="clinic:login")
 def profile_view(request):
     if not _require_receptionist(request):
         raise PermissionDenied
 
     user = request.user
-    profile_form  = ReceptionistProfileForm(instance=user)
+    profile_form = ReceptionistProfileForm(instance=user)
     password_form = PasswordChangeForm()
-    profile_saved  = False
+    profile_saved = False
     password_saved = False
     password_error = None
 
@@ -321,6 +363,7 @@ def profile_view(request):
                     user.save()
                     # Re-authenticate to keep session alive
                     from django.contrib.auth import update_session_auth_hash
+
                     update_session_auth_hash(request, user)
                     password_saved = True
                     password_form = PasswordChangeForm()
@@ -328,24 +371,26 @@ def profile_view(request):
                     password_error = "Current password is incorrect."
 
     ctx = _ctx(request)
-    ctx.update({
-        "active_nav":     "profile",
-        "profile_form":   profile_form,
-        "password_form":  password_form,
-        "profile_saved":  profile_saved,
-        "password_saved": password_saved,
-        "password_error": password_error,
-        # Performance stats
-        "checkins_today": Encounter.objects.filter(
-            checked_in_by=user,
-            created_at__date=timezone.now().date()
-        ).count(),
-        "checkins_total": Encounter.objects.filter(checked_in_by=user).count(),
-    })
+    ctx.update(
+        {
+            "active_nav": "profile",
+            "profile_form": profile_form,
+            "password_form": password_form,
+            "profile_saved": profile_saved,
+            "password_saved": password_saved,
+            "password_error": password_error,
+            # Performance stats
+            "checkins_today": Encounter.objects.filter(
+                checked_in_by=user, created_at__date=timezone.now().date()
+            ).count(),
+            "checkins_total": Encounter.objects.filter(checked_in_by=user).count(),
+        }
+    )
     return render(request, "clinic/profile.html", ctx)
 
 
 # ─── Emergency Mode ───────────────────────────────────────────────────────────
+
 
 @login_required(login_url="clinic:login")
 @require_POST
@@ -355,6 +400,7 @@ def emergency_mode(request):
         raise PermissionDenied
     try:
         from .tasks import broadcast_emergency
+
         broadcast_emergency.delay(
             triggered_by=request.user.get_full_name() or request.user.username,
             note=request.POST.get("note", "Emergency flagged at reception."),
@@ -366,18 +412,218 @@ def emergency_mode(request):
 
 # ─── HTMX Polling Partials ────────────────────────────────────────────────────
 
+
 @login_required(login_url="clinic:login")
 @require_GET
 def queue_stats_partial(request):
-    return render(request, "clinic/partials/queue_stats.html", {"queue_stats": _queue_stats()})
+    return render(
+        request, "clinic/partials/queue_stats.html", {"queue_stats": _queue_stats()}
+    )
 
 
 @login_required(login_url="clinic:login")
 @require_GET
 def recent_checkins_partial(request):
-    return render(request, "clinic/partials/recent_checkins.html", {
-        "recent_encounters": _recent_encounters(),
-    })
+    return render(
+        request,
+        "clinic/partials/recent_checkins.html",
+        {
+            "recent_encounters": _recent_encounters(),
+        },
+    )
 
 
-# TODO: 1. create a STAFF ID generator
+# ══════════════════════════════════════════════════════════════════════════════
+# NURSE VIEWS
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _require_nurse(request):
+    """Return True only for Nurse or Admin roles."""
+    if not request.user.is_authenticated:
+        return False
+    return getattr(request.user, "role", "") in ("NURSE", "ADMIN")
+
+
+def _nurse_queue_stats():
+    """Stats for the nurse right-pane."""
+    today = timezone.now().date()
+    return {
+        "today": Encounter.objects.filter(created_at__date=today).count(),
+        "critical": Encounter.objects.filter(priority=Encounter.Priority.EMERGENCY)
+        .exclude(status=Encounter.Status.CLOSED)
+        .count(),
+        "waiting": Encounter.objects.filter(status=Encounter.Status.RECEPTION).count(),
+    }
+
+
+def _nurse_live_queue():
+    """All open encounters ordered by priority DESC then arrival ASC."""
+    return (
+        Encounter.objects.select_related("patient")
+        .exclude(status__in=[Encounter.Status.CLOSED])
+        .order_by("-priority", "created_at")[:20]
+    )
+
+
+def _nurse_ctx(request):
+    return {
+        "queue_stats": _nurse_queue_stats(),
+        "live_queue": _nurse_live_queue(),
+        "today": timezone.now().date(),
+    }
+
+
+# ── Patient Queue (Awaiting Vitals) ───────────────────────────────────────────
+
+
+@login_required(login_url="clinic:login")
+def nurse_queue_view(request):
+    if not _require_nurse(request):
+        raise PermissionDenied
+    ctx = _nurse_ctx(request)
+    ctx["active_nav"] = "queue"
+    ctx["awaiting"] = (
+        Encounter.objects.select_related("patient")
+        .filter(status=Encounter.Status.RECEPTION)
+        .order_by("-priority", "created_at")
+    )
+    return render(request, "nurse/queue.html", ctx)
+
+
+# ── Capture Vitals ────────────────────────────────────────────────────────────
+
+
+@login_required(login_url="clinic:login")
+def     capture_vitals_view(request, encounter_id):
+    if not _require_nurse(request):
+        raise PermissionDenied
+
+    encounter = get_object_or_404(
+        Encounter.objects.select_related("patient"),
+        pk=encounter_id,
+        status=Encounter.Status.RECEPTION,
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action", "submit")
+
+        # Save vitals from the Encounter model fields
+        encounter.temperature = request.POST.get("temperature") or None
+        encounter.heart_rate = request.POST.get("heart_rate") or None
+        encounter.blood_pressure = request.POST.get("blood_pressure", "").strip()
+        encounter.weight = request.POST.get("weight") or None
+        encounter.spo2 = request.POST.get("spo2") or None
+        encounter.triage_notes = request.POST.get("triage_notes", "").strip()
+
+        if action == "discard":
+            # Don't save — just redirect back to queue
+            return redirect("clinic:nurse_queue")
+
+        # Save vitals and advance status to TRIAGE (→ awaiting doctor)
+        encounter.status = Encounter.Status.TRIAGE
+        encounter.save()
+
+        # Push ticket to doctor queue via Celery
+        try:
+            from .tasks import notify_department_queue
+
+            notify_department_queue.delay(str(encounter.visit_id), "DOCTOR")
+        except Exception:
+            pass
+
+        return redirect("clinic:nurse_queue")
+
+    ctx = _nurse_ctx(request)
+    ctx["active_nav"] = "queue"
+    ctx["encounter"] = encounter
+    return render(request, "nurse/capture_vitals.html", ctx)
+
+
+# ── Nurse Profile ─────────────────────────────────────────────────────────────
+
+
+@login_required(login_url="clinic:login")
+def nurse_profile_view(request):
+    if not _require_nurse(request):
+        raise PermissionDenied
+
+    user = request.user
+    profile_saved = False
+    password_saved = False
+    password_error = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "update_profile":
+            user.first_name = request.POST.get("first_name", user.first_name).strip()
+            user.last_name = request.POST.get("last_name", user.last_name).strip()
+            user.email = request.POST.get("email", user.email).strip()
+            user.phone_number = request.POST.get(
+                "phone_number", user.phone_number
+            ).strip()
+            user.save(
+                update_fields=["first_name", "last_name", "email", "phone_number"]
+            )
+            profile_saved = True
+
+        elif action == "change_password":
+            cur = request.POST.get("current_password", "")
+            new = request.POST.get("new_password", "")
+            conf = request.POST.get("confirm_password", "")
+            if not user.check_password(cur):
+                password_error = "Current password is incorrect."
+            elif new != conf:
+                password_error = "New passwords do not match."
+            elif len(new) < 8:
+                password_error = "Password must be at least 8 characters."
+            else:
+                user.set_password(new)
+                user.save()
+                from django.contrib.auth import update_session_auth_hash
+
+                update_session_auth_hash(request, user)
+                password_saved = True
+
+    today = timezone.now().date()
+    ctx = _nurse_ctx(request)
+    ctx.update(
+        {
+            "active_nav": "profile",
+            "profile_saved": profile_saved,
+            "password_saved": password_saved,
+            "password_error": password_error,
+            # Performance stats
+            "vitals_today": Encounter.objects.filter(
+                status__in=[
+                    Encounter.Status.TRIAGE,
+                    Encounter.Status.CONSULTATION,
+                    Encounter.Status.LABORATORY,
+                    Encounter.Status.PHARMACY,
+                    Encounter.Status.CLOSED,
+                ],
+                created_at__date=today,
+            ).count(),
+            "vitals_total": Encounter.objects.exclude(
+                status=Encounter.Status.RECEPTION
+            ).count(),
+        }
+    )
+    return render(request, "nurse/profile.html", ctx)
+
+
+# ── Nurse HTMX Partials ───────────────────────────────────────────────────────
+
+
+@login_required(login_url="clinic:login")
+@require_GET
+def nurse_live_queue_partial(request):
+    return render(
+        request,
+        "nurse/partials/live_queue.html",
+        {
+            "live_queue": _nurse_live_queue(),
+            "queue_stats": _nurse_queue_stats(),
+        },
+    )

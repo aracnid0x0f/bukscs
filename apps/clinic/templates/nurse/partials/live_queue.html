@@ -1,0 +1,75 @@
+{% for encounter in live_queue %}
+<div class="q-ticket {% if encounter.priority == 3 %}emergency{% endif %} fade-up">
+  <div class="qt-row1">
+    <span class="qt-id {% if encounter.priority == 3 %}emg{% endif %}">
+      {{ encounter.ticket_number }}
+    </span>
+    <span class="qt-age">{{ encounter.created_at|timesince|truncatewords:2 }} ago</span>
+  </div>
+
+  <div class="qt-name">{{ encounter.patient.last_name }}, {{ encounter.patient.first_name }}</div>
+
+  <div class="qt-detail" style="justify-content:space-between;margin-top:0.35rem;">
+    <div style="display:flex;align-items:center;gap:0.4rem;">
+      {% if encounter.priority == 3 %}
+        <span class="qt-badge badge-critical">Critical</span>
+      {% elif encounter.priority == 2 %}
+        <span class="qt-badge" style="background:var(--amber-light);color:var(--amber);">Urgent</span>
+      {% elif encounter.status == 'TRIAGE' %}
+        <span class="qt-badge badge-vitals">Vitals</span>
+      {% elif encounter.status == 'CONSULTATION' %}
+        <span class="qt-badge" style="background:var(--blue-light);color:var(--blue);">Doctor</span>
+      {% elif encounter.status == 'CLOSED' %}
+        <span class="qt-badge badge-done">Done</span>
+      {% else %}
+        <span class="qt-badge badge-standard">Standard</span>
+      {% endif %}
+
+      <span style="font-size:0.65rem;color:var(--text-3);">
+        <i data-lucide="clock" style="width:10px;height:10px;vertical-align:middle;"></i>
+        Waiting: {{ encounter.created_at|timesince|truncatewords:2 }}
+      </span>
+    </div>
+
+    {% if encounter.status == 'RECEPTION' %}
+      <a href="{% url 'clinic:capture_vitals' encounter.pk %}" class="qt-action-link">
+        Attend Now
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div style="padding:1.5rem 0;text-align:center;font-size:0.75rem;color:var(--text-3);">
+  <i data-lucide="inbox" style="width:22px;height:22px;display:block;margin:0 auto 0.4rem;opacity:0.35;"></i>
+  No active tickets
+</div>
+{% endfor %}
+
+<!-- Stats footer -->
+<div class="queue-stats-row">
+  <div class="qs-stat">
+    <div class="qs-val">{{ queue_stats.today }}</div>
+    <div class="qs-lbl">Today</div>
+  </div>
+  <div class="qs-stat">
+    <div class="qs-val red">{{ queue_stats.critical }}</div>
+    <div class="qs-lbl">Critical</div>
+  </div>
+  <div class="qs-stat">
+    <div class="qs-val">{{ queue_stats.waiting }}</div>
+    <div class="qs-lbl">Waiting</div>
+  </div>
+</div>
+
+<!-- Capacity bar -->
+{% with cap=queue_stats.waiting %}
+<div class="capacity-bar-wrap">
+  <div class="cap-label">Clinic Capacity</div>
+  <div class="cap-bar">
+    <div class="cap-fill" style="width:{% if cap > 20 %}100{% elif cap > 0 %}{{ cap|add:0 }}0{% else %}5{% endif %}%;"></div>
+  </div>
+  <div class="cap-pct">
+    {% if cap == 0 %}Idle{% elif cap < 5 %}Low load{% elif cap < 15 %}Moderate load — {{ cap }} waiting{% else %}High load — {{ cap }} waiting{% endif %}
+  </div>
+</div>
+{% endwith %}

@@ -1,0 +1,301 @@
+{% extends "nurse/base.html" %}
+{% block title %}Capture Vitals — BUK Nurse Dashboard{% endblock %}
+
+{% block content %}
+<style>
+/* ── Vitals capture page ── */
+.vitals-eyebrow {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-pill);
+  padding: 0.25rem 0.85rem;
+  font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 0.75rem;
+}
+.vitals-title { font-size: 1.65rem; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+.vitals-for {
+  font-size: 0.85rem; color: var(--text-2); margin-bottom: 2rem;
+}
+.vitals-for strong { font-family: var(--font-mono); color: var(--teal); }
+
+/* Vitals input grid */
+.vitals-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.vitals-field {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+}
+.vf-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 0.85rem;
+}
+.vf-header i { color: var(--teal); }
+
+/* Input with unit suffix */
+.vf-input-wrap {
+  display: flex; align-items: center;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.vf-input-wrap:focus-within { box-shadow: var(--neo-inset), 0 0 0 2px var(--teal-glow); }
+.vf-inp {
+  flex: 1; border: none; background: transparent;
+  padding: 0.75rem 1rem; font-size: 1rem;
+  font-family: var(--font-mono); font-weight: 500;
+  color: var(--text-1); outline: none; min-width: 0;
+}
+.vf-inp::placeholder { color: var(--text-3); font-weight: 300; }
+.vf-unit {
+  padding: 0 0.85rem;
+  font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500;
+  color: var(--text-3); border-left: 1px solid rgba(0,0,0,0.06);
+  white-space: nowrap;
+}
+
+/* Blood pressure — two inputs split by / */
+.bp-wrap {
+  display: flex; align-items: center;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md);
+  transition: box-shadow 0.2s;
+}
+.bp-wrap:focus-within { box-shadow: var(--neo-inset), 0 0 0 2px var(--teal-glow); }
+.bp-inp {
+  flex: 1; border: none; background: transparent;
+  padding: 0.75rem 0.85rem; font-size: 1rem;
+  font-family: var(--font-mono); font-weight: 500;
+  color: var(--text-1); outline: none; min-width: 0; text-align: center;
+}
+.bp-inp::placeholder { color: var(--text-3); font-weight: 300; }
+.bp-sep { font-size: 1.1rem; color: var(--text-3); flex-shrink: 0; }
+.bp-unit { padding: 0 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-3); border-left: 1px solid rgba(0,0,0,0.06); }
+
+/* Triage notes — full width */
+.triage-notes-card {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.tn-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 0.85rem;
+}
+
+/* Action bar */
+.action-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1.5rem; padding: 1rem 0;
+}
+.discard-btn {
+  background: transparent; border: none;
+  font-size: 0.88rem; font-weight: 600; color: var(--text-3);
+  cursor: pointer; padding: 0.65rem 1.25rem;
+  border-radius: var(--r-pill); transition: color 0.15s;
+}
+.discard-btn:hover { color: var(--text-1); }
+.submit-btn {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.85rem 2.5rem;
+  background: var(--teal); color: #fff;
+  box-shadow: 6px 6px 12px rgba(26,127,122,0.35), -3px -3px 8px rgba(255,255,255,0.2);
+  border: none; border-radius: var(--r-pill);
+  font-size: 0.95rem; font-weight: 800;
+  cursor: pointer; transition: all 0.18s var(--ease);
+  letter-spacing: 0.01em;
+}
+.submit-btn:hover { background: var(--teal-dark); transform: translateY(-1px); box-shadow: 8px 8px 16px rgba(26,127,122,0.4),-4px -4px 10px rgba(255,255,255,0.25); }
+.submit-btn:active { transform: translateY(0); }
+</style>
+
+<form method="POST" action="{% url 'clinic:capture_vitals' encounter.pk %}">
+  {% csrf_token %}
+
+  <!-- Header -->
+  <div class="vitals-eyebrow">
+    <i data-lucide="stethoscope" style="width:11px;height:11px;"></i>
+    Vitals Capture
+  </div>
+  <h1 class="vitals-title">Patient Metrics Entry</h1>
+  <p class="vitals-for">
+    Entering data for:
+    <strong>{{ encounter.ticket_number }}</strong>
+    ({{ encounter.patient.full_name }})
+  </p>
+
+  <!-- Vitals grid — maps directly to Encounter model fields -->
+  <div class="vitals-grid">
+
+    <!-- Temperature -->
+    <div class="vitals-field">
+      <div class="vf-header">
+        <i data-lucide="thermometer" style="width:16px;height:16px;"></i>
+        Temperature (°C)
+      </div>
+      <div class="vf-input-wrap">
+        <input class="vf-inp" type="number" step="0.1" min="30" max="45"
+          name="temperature"
+          value="{{ encounter.temperature|default:'' }}"
+          placeholder="36.5">
+        <span class="vf-unit">°C</span>
+      </div>
+    </div>
+
+    <!-- Heart Rate -->
+    <div class="vitals-field">
+      <div class="vf-header">
+        <i data-lucide="heart-pulse" style="width:16px;height:16px;"></i>
+        Heart Rate (bpm)
+      </div>
+      <div class="vf-input-wrap">
+        <input class="vf-inp" type="number" min="20" max="250"
+          name="heart_rate"
+          value="{{ encounter.heart_rate|default:'' }}"
+          placeholder="72">
+        <span class="vf-unit">BPM</span>
+      </div>
+    </div>
+
+    <!-- Blood Pressure — stored as "systolic/diastolic" string in model -->
+    <div class="vitals-field" style="grid-column: span 2;">
+      <div class="vf-header">
+        <i data-lucide="gauge" style="width:16px;height:16px;"></i>
+        Blood Pressure (systolic / diastolic)
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="bp-wrap" style="flex:1;">
+          <input class="bp-inp" type="number" id="bp-sys" min="50" max="250"
+  placeholder="120"
+  value="">
+          <span class="bp-sep">/</span>
+          <input class="bp-inp" type="number" id="bp-dia" min="30" max="180"
+            placeholder="80">
+          <span class="bp-unit">mmHg</span>
+          <!-- Hidden combined field sent to server -->
+          <input type="hidden" name="blood_pressure" id="bp-combined">
+        </div>
+      </div>
+    </div>
+
+    <!-- Weight -->
+    <div class="vitals-field">
+      <div class="vf-header">
+        <i data-lucide="scale" style="width:16px;height:16px;"></i>
+        Weight (kg)
+      </div>
+      <div class="vf-input-wrap">
+        <input class="vf-inp" type="number" step="0.1" min="1" max="300"
+          name="weight"
+          value="{{ encounter.weight|default:'' }}"
+          placeholder="70.5">
+        <span class="vf-unit">KG</span>
+      </div>
+    </div>
+
+    <!-- SpO2 -->
+    <div class="vitals-field">
+      <div class="vf-header">
+        <i data-lucide="wind" style="width:16px;height:16px;"></i>
+        SpO2 (%)
+      </div>
+      <div class="vf-input-wrap">
+        <input class="vf-inp" type="number" min="50" max="100"
+          name="spo2"
+          value="{{ encounter.spo2|default:'' }}"
+          placeholder="98">
+        <span class="vf-unit">%</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Triage Notes -->
+  <div class="triage-notes-card">
+    <div class="tn-header">
+      <i data-lucide="file-text" style="width:16px;height:16px;color:var(--teal);"></i>
+      Triage Notes
+    </div>
+    <textarea class="neo-textarea" name="triage_notes"
+      placeholder="Patient reports mild headache and fatigue…"
+      rows="4">{{ encounter.triage_notes }}</textarea>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <button type="submit" name="action" value="discard" class="discard-btn">
+      Discard
+    </button>
+    <button type="submit" name="action" value="submit" class="submit-btn">
+      Submit to Doctor
+      <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+    </button>
+  </div>
+
+</form>
+
+<script>
+// Combine systolic/diastolic into the hidden blood_pressure field before submit
+{% comment %} const form = document.querySelector("form");
+const bpSys  = document.getElementById("bp-sys");
+const bpDia  = document.getElementById("bp-dia");
+const bpComb = document.getElementById("bp-combined");
+const existing = "{{ encounter.blood_pressure|default:''|escapejs }}";
+
+// 2. Check if the string exists and contains the separator
+if (existing && existing.includes("/")) {
+    const parts = existing.split("/");
+    
+    // 3. Check if we actually have two parts after splitting
+    if (parts.length === 2) {
+        bpSys.value = parts[0].trim();
+        bpDia.value = parts[1].trim();
+    }
+}
+form.addEventListener("submit", () => {
+  const sys = bpSys.value.trim();
+  const dia = bpDia.value.trim();
+  if (sys && dia) bpComb.value = `${sys}/${dia}`;
+  else if (sys)   bpComb.value = sys;
+}); {% endcomment %}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector("form");
+  const bpSys  = document.getElementById("bp-sys");
+  const bpDia  = document.getElementById("bp-dia");
+  const bpComb = document.getElementById("bp-combined");
+
+  // 1. Get the value from Django safely
+  const existing = "{{ encounter.blood_pressure|default:''|escapejs }}";
+
+  // 2. If a value exists, split it and pre-fill the inputs
+  if (existing && existing.includes("/")) {
+      const parts = existing.split("/");
+      if (parts.length === 2) {
+          bpSys.value = parts[0].trim();
+          bpDia.value = parts[1].trim();
+      }
+  }
+
+  // 3. Combine them back together before the form sends to Python
+  form.addEventListener("submit", (e) => {
+    const sys = bpSys.value.trim();
+    const dia = bpDia.value.trim();
+    
+    if (sys && dia) {
+      bpComb.value = `${sys}/${dia}`;
+    } else {
+      // Optional: Prevent submission if BP is incomplete
+      // e.preventDefault(); 
+      // alert("Please enter both Systolic and Diastolic values.");
+    }
+  });
+});
+</script>
+{% endblock %}

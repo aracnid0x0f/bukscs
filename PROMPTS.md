@@ -141,3 +141,57 @@ Here is what we want:
         - All activist by the Receptionist will remain in their dashboard, no links or redirects to another roles dashboard 
     ## resources
         - here is a link for an SIF letter sample: https://www.scribd.com/document/456074960/SPS-19-MCE-00083-SIF
+
+
+ # Nurse Dashboard: stitch
+Now let recreate the Nurse dashboard, following the same design as the Receptionist dashboard.
+
+Here is what i want:
+- a Side Navbar with the linking to the following pages:
+	- Patient Queue page: 
+		- where the nurse can see the patients checked into the clinic for the day, this will e a list of tickets opened by the receptionist, with the `Awaiting Vitals` status
+		- clicking on a ticket item will take them to a page where they take the vitals of the following:
+			- temperature
+			- weight
+			- blood_pressure
+			- heart_rate
+			- spo2;  Blood oxygen saturation
+			- triage_notes; notes that will be written by nurse, some observations
+		this page will have a submit button which says `Submit to Doctor` that will forwards the teicket to the doctors queue
+	- Nurse Profile:
+		- View and edit their profile information
+        	- An emergency mode button, which allows the nurse to notify when there is an emergency at the clinic
+    	- a Logout button/Sign out button
+	- Add a mini clock just above the emergency and logout button showing time in real time, add this to every dashboard from now on 
+- A Right pane showing open tickets in the queue with their statuses
+
+## Constraints
+	- All activist by the Receptionist will remain in their dashboard, no links or redirects to another roles dashboard 
+    - Be consistent with the design across all pages
+
+# Nurse Dashboard: claude
+Now let recreate the Nurse dashboard, following the same design as the Receptionist dashboard.
+I've provided the design inspriration for the pages.
+> Follow up and be consistent with the Receptionist dashboard pages design.
+## Backend 
+
+- Add the views, urls, models (if needed or any modifications) to the existing files from previous messages
+- provide any necessary explainations or commands needed to run
+## Frontend
+
+- Create the templates:
+Focus on the pages:
+    1. Awaiting Vitals page
+        - Shows the list of patients in the queue
+    2. Capture Vitals page
+        - Captures the vitals from the Encouter model, dont add non existent ones
+        - this page submits the ticket back into the queue for the doctors consumption
+    3. Nurse Profile page
+        - Similar to the Profile Page for the receptionist, just with minor changes inspired from the page prototype
+## Extras/Miscs
+
+- Remove the Live Ticket View link from navbar
+- Be consistent with previous pages from receptionst
+- I want a similar left pane navbar linking to the pages
+- add a mini clock just above the emergency and logout button show time in real time 
+- The right pane should show a live queue fetched from the message queue, with emergency priorities

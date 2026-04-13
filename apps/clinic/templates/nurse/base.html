@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Nurse Dashboard — BUK Smart Clinic{% endblock %}</title>
+<script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   NEOMORPHISM DESIGN SYSTEM — identical tokens to receptionist
+══════════════════════════════════════════════════════════════ */
+:root {
+  --bg:           #e8edf2;
+  --bg-dark:      #dde3ea;
+  --sh-light:     #ffffff;
+  --sh-dark:      #c5cdd8;
+  --neo-sm:       4px 4px 8px var(--sh-dark), -4px -4px 8px var(--sh-light);
+  --neo-md:       8px 8px 16px var(--sh-dark), -8px -8px 16px var(--sh-light);
+  --neo-lg:       12px 12px 24px var(--sh-dark), -12px -12px 24px var(--sh-light);
+  --neo-inset:    inset 4px 4px 8px var(--sh-dark), inset -4px -4px 8px var(--sh-light);
+  --neo-inset-sm: inset 2px 2px 5px var(--sh-dark), inset -2px -2px 5px var(--sh-light);
+  --teal:         #1a7f7a;
+  --teal-dark:    #145f5b;
+  --teal-light:   #e0f2f1;
+  --teal-glow:    rgba(26,127,122,0.18);
+  --red:          #c0392b;
+  --red-light:    #fdecea;
+  --amber:        #d97706;
+  --amber-light:  #fef3c7;
+  --green:        #16a34a;
+  --green-light:  #dcfce7;
+  --blue:         #2563eb;
+  --blue-light:   #dbeafe;
+  --text-1:       #1a2332;
+  --text-2:       #4a5568;
+  --text-3:       #8a96a8;
+  --font-ui:      'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+  --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body { font-family: var(--font-ui); background: var(--bg); color: var(--text-1); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* ── PAGE SHELL ── */
+.page-shell { display: grid; grid-template-columns: 220px 1fr 290px; min-height: 100vh; }
+
+/* ── TOP BAR ── */
+.topbar {
+  grid-column: 1 / -1;
+  height: 56px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px var(--sh-dark);
+  display: flex; align-items: center;
+  padding: 0 1.5rem 0 1.25rem; gap: 1rem;
+  position: sticky; top: 0; z-index: 200;
+}
+.tb-brand { font-family: var(--font-ui); font-size: 1rem; font-weight: 800; color: var(--teal); letter-spacing: -0.01em; white-space: nowrap; }
+.tb-nav { display: flex; align-items: center; gap: 0; margin: 0 auto; }
+.tb-nav-link {
+  padding: 0 1.25rem; height: 56px; display: flex; align-items: center;
+  font-size: 0.82rem; font-weight: 600; color: var(--text-2);
+  border-bottom: 2px solid transparent; transition: all 0.18s; white-space: nowrap;
+}
+.tb-nav-link:hover { color: var(--teal); }
+.tb-nav-link.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tb-right { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+.ico-btn {
+  width: 32px; height: 32px; border-radius: var(--r-md);
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border: none; color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.ico-btn:hover { box-shadow: var(--neo-md); color: var(--teal); }
+.notif-pip { position: absolute; top: 6px; right: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--red); }
+.tb-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  box-shadow: var(--neo-sm); background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; cursor: pointer; transition: box-shadow 0.15s;
+}
+.tb-avatar:hover { box-shadow: var(--neo-md); }
+.tb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.tb-avatar-initials { font-size: 0.68rem; font-weight: 800; color: var(--teal); }
+
+/* ── LEFT SIDEBAR ── */
+.sidebar {
+  background: var(--bg);
+  padding: 1.25rem 1rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+  border-right: 1px solid rgba(0,0,0,0.04);
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+.sidebar-brand-block {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.6rem 0.5rem 1rem;
+}
+.sb-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  box-shadow: var(--neo-sm); background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; flex-shrink: 0;
+}
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sb-avatar-initials { font-size: 0.78rem; font-weight: 800; color: var(--teal); }
+.sb-brand-name { font-size: 0.82rem; font-weight: 800; color: var(--text-1); line-height: 1.2; }
+.sb-brand-sub  { font-size: 0.65rem; color: var(--text-3); }
+
+.nav-link {
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0.6rem 0.85rem; border-radius: var(--r-md);
+  font-size: 0.82rem; font-weight: 500; color: var(--text-2);
+  cursor: pointer; transition: all 0.2s var(--ease);
+  border: none; background: transparent; width: 100%; text-align: left;
+}
+.nav-link:hover { background: var(--bg); box-shadow: var(--neo-sm); color: var(--teal); }
+.nav-link.active { box-shadow: var(--neo-inset-sm); color: var(--teal); font-weight: 700; background: var(--bg-dark); }
+
+/* Clock widget */
+.clock-widget {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-lg); padding: 0.85rem 1rem;
+  margin: 0 0.25rem;
+}
+.clock-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); margin-bottom: 0.25rem; }
+.clock-time { font-family: var(--font-mono); font-size: 1.4rem; font-weight: 500; color: var(--teal); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+
+.sidebar-spacer { flex: 1; }
+
+.emergency-btn {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.7rem 0.85rem; border-radius: var(--r-md);
+  font-size: 0.8rem; font-weight: 700; color: var(--red);
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border: none; cursor: pointer; width: 100%;
+  transition: all 0.2s var(--ease);
+}
+.emergency-btn:hover { box-shadow: var(--neo-inset-sm); background: var(--red-light); }
+.emergency-btn .emg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+
+.logout-btn {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.85rem; border-radius: var(--r-md);
+  font-size: 0.8rem; font-weight: 500; color: var(--text-3);
+  background: transparent; border: none; cursor: pointer; width: 100%;
+  transition: color 0.15s;
+}
+.logout-btn:hover { color: var(--text-1); }
+
+/* ── MAIN CONTENT ── */
+.main-content { padding: 2rem 1.75rem; overflow-y: auto; }
+
+/* ── RIGHT QUEUE PANE ── */
+.queue-pane {
+  background: var(--bg); padding: 1.25rem 1rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  border-left: 1px solid rgba(0,0,0,0.04);
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+.qp-header { display: flex; align-items: center; justify-content: space-between; }
+.qp-title { font-size: 0.9rem; font-weight: 800; color: var(--text-1); }
+.live-badge {
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--green);
+  background: var(--green-light); padding: 0.15rem 0.55rem;
+  border-radius: var(--r-pill);
+  display: flex; align-items: center; gap: 0.3rem;
+}
+.live-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.qp-sub { font-size: 0.65rem; color: var(--text-3); margin-top: 2px; }
+
+/* Queue ticket card */
+.q-ticket {
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); padding: 0.85rem;
+  transition: box-shadow 0.18s; cursor: pointer;
+}
+.q-ticket:hover { box-shadow: var(--neo-md); }
+.q-ticket.emergency { box-shadow: var(--neo-sm), inset 0 0 0 2px rgba(192,57,43,0.35); }
+.qt-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
+.qt-id { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; color: var(--teal); }
+.qt-id.emg { color: var(--red); }
+.qt-age { font-size: 0.65rem; color: var(--text-3); }
+.qt-name { font-size: 0.85rem; font-weight: 700; color: var(--text-1); margin-bottom: 0.25rem; }
+.qt-detail { font-size: 0.7rem; color: var(--text-2); display: flex; align-items: center; gap: 0.3rem; }
+.qt-badge {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.15rem 0.5rem; border-radius: var(--r-pill);
+}
+.badge-critical { background: var(--red-light); color: var(--red); }
+.badge-standard { background: var(--blue-light); color: var(--blue); }
+.badge-vitals   { background: var(--teal-light); color: var(--teal); }
+.badge-done     { background: var(--green-light); color: var(--green); }
+
+.qt-action-link {
+  font-size: 0.7rem; font-weight: 700; color: var(--teal);
+  margin-left: auto; white-space: nowrap;
+}
+
+/* Queue stats footer */
+.queue-stats-row {
+  display: flex; gap: 0; margin-top: auto;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.qs-stat {
+  flex: 1; padding: 0.85rem 0.5rem; text-align: center;
+  border-right: 1px solid rgba(0,0,0,0.05);
+}
+.qs-stat:last-child { border-right: none; }
+.qs-val { font-size: 1.4rem; font-weight: 800; color: var(--text-1); line-height: 1; }
+.qs-val.red { color: var(--red); }
+.qs-lbl { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-top: 3px; }
+
+/* Capacity bar */
+.capacity-bar-wrap {
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-md); padding: 0.75rem 0.85rem;
+}
+.cap-label { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 0.4rem; }
+.cap-bar { height: 5px; background: var(--bg-dark); box-shadow: var(--neo-inset-sm); border-radius: 99px; overflow: hidden; }
+.cap-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--teal-dark)); border-radius: 99px; transition: width 0.8s var(--ease); }
+.cap-pct { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; color: var(--teal); margin-top: 0.3rem; }
+
+/* ── NEO UTILITIES ── */
+.neo-card    { background: var(--bg); box-shadow: var(--neo-md); border-radius: var(--r-xl); padding: 1.5rem; }
+.neo-card-sm { background: var(--bg); box-shadow: var(--neo-sm); border-radius: var(--r-lg); padding: 1rem; }
+.neo-input {
+  width: 100%; background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border: none; border-radius: var(--r-md); padding: 0.65rem 0.9rem;
+  font-size: 0.82rem; color: var(--text-1); outline: none; transition: box-shadow 0.2s;
+}
+.neo-input:focus { box-shadow: var(--neo-inset), 0 0 0 2px var(--teal-glow); }
+.neo-input::placeholder { color: var(--text-3); }
+.neo-textarea {
+  width: 100%; background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border: none; border-radius: var(--r-md); padding: 0.65rem 0.9rem;
+  font-size: 0.82rem; color: var(--text-1); outline: none;
+  resize: vertical; min-height: 120px; transition: box-shadow 0.2s;
+}
+.neo-textarea:focus { box-shadow: var(--neo-inset), 0 0 0 2px var(--teal-glow); }
+.neo-textarea::placeholder { color: var(--text-3); }
+.field-lbl { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; display: block; }
+.btn-neo {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.65rem 1.25rem; background: var(--bg); box-shadow: var(--neo-md);
+  border: none; border-radius: var(--r-pill);
+  font-size: 0.82rem; font-weight: 600; color: var(--text-2);
+  cursor: pointer; transition: all 0.18s var(--ease);
+}
+.btn-neo:hover  { box-shadow: var(--neo-lg); color: var(--text-1); transform: translateY(-1px); }
+.btn-neo:active { box-shadow: var(--neo-inset-sm); transform: translateY(0); }
+.btn-teal {
+  background: var(--teal); color: #fff;
+  box-shadow: 6px 6px 12px rgba(26,127,122,0.35), -3px -3px 8px rgba(255,255,255,0.2);
+}
+.btn-teal:hover { background: var(--teal-dark); color: #fff; }
+.btn-sm { padding: 0.4rem 0.85rem; font-size: 0.75rem; }
+.btn-lg { padding: 0.85rem 2rem; font-size: 0.9rem; }
+.page-title { font-size: 1.5rem; font-weight: 800; color: var(--teal); letter-spacing: -0.02em; }
+.page-sub   { font-size: 0.8rem; color: var(--text-3); margin-top: 0.2rem; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.span-2 { grid-column: span 2; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.2rem 0.6rem; border-radius: var(--r-pill);
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.badge-teal  { background: var(--teal-light);  color: var(--teal); }
+.badge-red   { background: var(--red-light);   color: var(--red); }
+.badge-amber { background: var(--amber-light); color: var(--amber); }
+.badge-green { background: var(--green-light); color: var(--green); }
+
+/* Success/error banners */
+.success-banner { display: flex; align-items: center; gap: 0.55rem; background: var(--green-light); box-shadow: var(--neo-inset-sm); border-radius: var(--r-md); padding: 0.7rem 1rem; font-size: 0.8rem; color: var(--green); margin-bottom: 1rem; }
+.error-banner   { display: flex; align-items: center; gap: 0.55rem; background: var(--red-light);   box-shadow: var(--neo-inset-sm); border-radius: var(--r-md); padding: 0.7rem 1rem; font-size: 0.8rem; color: var(--red);   margin-bottom: 1rem; }
+
+/* Toast */
+#toasts { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; flex-direction: column-reverse; gap: 0.5rem; z-index: 1000; }
+.toast { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1.1rem; background: var(--bg); box-shadow: var(--neo-lg); border-radius: var(--r-md); font-size: 0.8rem; font-weight: 500; color: var(--text-1); animation: toastIn 0.25s var(--ease); max-width: 300px; }
+.toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+@keyframes toastIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* Modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.25); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-bg.open { opacity: 1; pointer-events: auto; }
+.modal-box { background: var(--bg); box-shadow: var(--neo-lg); border-radius: var(--r-xl); padding: 2rem; max-width: 400px; width: 90%; animation: modalIn 0.25s var(--ease); }
+@keyframes modalIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+
+/* HTMX spinner */
+.htmx-indicator { display: none !important; }
+.htmx-request .htmx-indicator { display: inline-flex !important; align-items: center; gap: 0.35rem; }
+.spin { width: 12px; height: 12px; border: 2px solid rgba(26,127,122,0.2); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.5s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+.fade-up { animation: fadeUp 0.22s var(--ease); }
+
+@media(max-width:1100px){ .page-shell{grid-template-columns:200px 1fr 240px} }
+@media(max-width:860px) { .page-shell{grid-template-columns:1fr} .sidebar,.queue-pane{display:none} }
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="page-shell">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <span class="tb-brand">BUK Smart Clinic</span>
+    <nav class="tb-nav">
+      <a href="{% url 'clinic:nurse_queue' %}" class="tb-nav-link {% if active_nav == 'queue' %}active{% endif %}">Dashboard</a>
+      <a href="{% url 'clinic:nurse_profile' %}" class="tb-nav-link {% if active_nav == 'profile' %}active{% endif %}">Nurse Profile</a>
+    </nav>
+    <div class="tb-right">
+      <button class="ico-btn" title="Notifications">
+        <i data-lucide="bell" style="width:14px;height:14px;"></i>
+        <span class="notif-pip"></span>
+      </button>
+      <a href="{% url 'clinic:nurse_profile' %}" class="tb-avatar" title="My Profile">
+        {% if request.user.profile_photo %}
+          <img src="{{ request.user.profile_photo.url }}" alt="avatar">
+        {% else %}
+          <span class="tb-avatar-initials">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</span>
+        {% endif %}
+      </a>
+    </div>
+  </header>
+
+  <!-- LEFT SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-brand-block">
+      <div class="sb-avatar">
+        {% if request.user.profile_photo %}
+          <img src="{{ request.user.profile_photo.url }}" alt="">
+        {% else %}
+          <span class="sb-avatar-initials">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <div class="sb-brand-name">BUK Smart Clinic</div>
+        <div class="sb-brand-sub">Medical Dashboard</div>
+      </div>
+    </div>
+
+    <a href="{% url 'clinic:nurse_queue' %}" class="nav-link {% if active_nav == 'queue' %}active{% endif %}">
+      <i data-lucide="users" style="width:16px;height:16px;"></i>
+      Patient Queue
+    </a>
+    <a href="{% url 'clinic:nurse_profile' %}" class="nav-link {% if active_nav == 'profile' %}active{% endif %}">
+      <i data-lucide="briefcase-medical" style="width:16px;height:16px;"></i>
+      Nurse Profile
+    </a>
+
+    <div class="sidebar-spacer"></div>
+
+    <!-- Clock -->
+    <div class="clock-widget">
+      <div class="clock-label">Station Time</div>
+      <div class="clock-time" id="sidebar-clock">--:--:--</div>
+    </div>
+
+    <button class="emergency-btn" onclick="openEmergencyModal()" type="button" style="margin-top:0.5rem;">
+      <span class="emg-dot"></span>
+      Emergency Mode
+    </button>
+    <a href="{% url 'clinic:logout' %}" class="logout-btn">
+      <i data-lucide="log-out" style="width:15px;height:15px;"></i>
+      Logout
+    </a>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- RIGHT QUEUE PANE -->
+  <aside class="queue-pane">
+    <div>
+      <div class="qp-header">
+        <div class="qp-title">Live Ticket Queue</div>
+        <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+      </div>
+      <div class="qp-sub">Real-time patient flow monitoring</div>
+    </div>
+
+    <div id="live-queue-body"
+      hx-get="{% url 'clinic:nurse_live_queue' %}"
+      hx-trigger="load, every 12s"
+      hx-swap="innerHTML">
+      {% include "nurse/partials/live_queue.html" %}
+    </div>
+  </aside>
+
+</div>
+
+<!-- Emergency Modal -->
+<div class="modal-bg" id="emergency-modal">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+      <div style="width:42px;height:42px;border-radius:50%;background:var(--red-light);display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="siren" style="width:20px;height:20px;color:var(--red);"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:var(--red);">Emergency Mode</div>
+        <div style="font-size:0.75rem;color:var(--text-3);">Alerts all active clinic staff immediately</div>
+      </div>
+    </div>
+    <label class="field-lbl">Emergency note (optional)</label>
+    <textarea class="neo-textarea" id="emergency-note" placeholder="Describe the situation…" rows="3" style="min-height:80px;"></textarea>
+    <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
+      <button class="btn-neo btn-teal btn-sm" style="flex:1;justify-content:center;background:var(--red);box-shadow:4px 4px 8px rgba(192,57,43,0.3),-2px -2px 6px rgba(255,255,255,0.5);" onclick="triggerEmergency()">
+        <i data-lucide="siren" style="width:14px;height:14px;"></i>
+        Broadcast Alert
+      </button>
+      <button class="btn-neo btn-sm" onclick="closeEmergencyModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => lucide.createIcons());
+document.body.addEventListener("htmx:afterSwap", () => lucide.createIcons());
+
+// Live clock
+(function() {
+  const el = document.getElementById("sidebar-clock");
+  function tick() {
+    el.textContent = new Date().toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }
+  tick(); setInterval(tick, 1000);
+})();
+
+// Toast
+function toast(msg, color) {
+  const c = document.getElementById("toasts");
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.innerHTML = `<span class="toast-dot" style="background:${color||'var(--teal)'}"></span>${msg}`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity="0"; t.style.transform="translateY(8px)"; t.style.transition="all 0.2s"; setTimeout(()=>t.remove(),200); }, 3500);
+}
+window.toast = toast;
+
+// Emergency
+function openEmergencyModal()  { document.getElementById("emergency-modal").classList.add("open"); }
+function closeEmergencyModal() { document.getElementById("emergency-modal").classList.remove("open"); }
+function triggerEmergency() {
+  const note = document.getElementById("emergency-note").value;
+  fetch("{% url 'clinic:nurse_emergency' %}", {
+    method: "POST",
+    headers: {"X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/x-www-form-urlencoded"},
+    body: `note=${encodeURIComponent(note)}`,
+  })
+  .then(r => r.json())
+  .then(d => { closeEmergencyModal(); toast(d.message || "Emergency alert broadcast.", "var(--red)"); })
+  .catch(() => toast("Failed to broadcast.", "var(--red)"));
+}
+</script>
+</body>
+</html>
