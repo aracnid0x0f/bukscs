@@ -46,3 +46,8 @@ __pycache__/
 # Optional: Ignore local environment folders if you use them
 venv/
 .env
+
+# Db files
+*.db
+*.sqlite3
+*.sqlite*

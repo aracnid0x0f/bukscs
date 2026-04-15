@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Installed
-    'django_celery_results',
     # Custom
     'apps.users.apps.UsersConfig',
     'apps.clinic',
@@ -130,11 +129,3 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-
-## Celery config 
-CELERY_BROKER_URL = 'amqp://localhost:5672' # Standard RabbitMQ port
-CELERY_RESULT_BACKEND = 'django-db'    # Useful for tracking task success
-CELERY_ACCEPT_CACHE = 'django-cache' # Use Django's caching for results
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Africa/Lagos'       # Match BUK's timezone

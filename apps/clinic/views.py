@@ -241,13 +241,6 @@ def checkin_patient(request, patient_id):
         checked_in_by=request.user,
     )
 
-    try:
-        from .tasks import notify_department_queue
-
-        notify_department_queue.delay(str(encounter.visit_id), "NURSE")
-    except Exception:
-        pass
-
     response = render(
         request,
         "clinic/partials/checkin_success.html",
@@ -398,16 +391,6 @@ def emergency_mode(request):
     """Notify the system of a clinic emergency via RabbitMQ/Celery."""
     if not _require_receptionist(request):
         raise PermissionDenied
-    try:
-        from .tasks import broadcast_emergency
-
-        broadcast_emergency.delay(
-            triggered_by=request.user.get_full_name() or request.user.username,
-            note=request.POST.get("note", "Emergency flagged at reception."),
-        )
-        return JsonResponse({"status": "ok", "message": "Emergency alert broadcast."})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
 # ─── HTMX Polling Partials ────────────────────────────────────────────────────
@@ -523,14 +506,6 @@ def     capture_vitals_view(request, encounter_id):
         # Save vitals and advance status to TRIAGE (→ awaiting doctor)
         encounter.status = Encounter.Status.TRIAGE
         encounter.save()
-
-        # Push ticket to doctor queue via Celery
-        try:
-            from .tasks import notify_department_queue
-
-            notify_department_queue.delay(str(encounter.visit_id), "DOCTOR")
-        except Exception:
-            pass
 
         return redirect("clinic:nurse_queue")
 

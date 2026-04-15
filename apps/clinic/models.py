@@ -11,14 +11,14 @@ from django.utils import timezone
 
 def generate_clinic_number():
     for _ in range(30):
-        number = str(random.randint(100000, 999999))
+        number = str(random.randint(100000, 999999)) # TODO: check for the starting boundary for the cc generation and change this
         if not Patient.objects.filter(clinic_code=number).exists():
             return number
     raise RuntimeError("Could not generate a unique clinic code.")
 
 
 class Patient(models.Model):
-    GENDER_CHOICES = [("M", "Male"), ("F", "Female"), ("O", "Other")]
+    GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
 
     # Identification
     first_name    = models.CharField(max_length=255)
