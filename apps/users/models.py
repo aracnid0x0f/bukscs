@@ -1,6 +1,6 @@
 """
 apps/users/models.py
-Custom User model with role-based access for BUK Smart Clinic.
+Custom User model with role-based access for BUK Smart Clinic System.
 All six roles: Admin, Receptionist, Nurse, Doctor, Lab Technician, Pharmacist.
 """
 

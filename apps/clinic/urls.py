@@ -1,6 +1,6 @@
 """
 clinic/urls.py
-All URLs for BUK Smart Clinic — Receptionist + Nurse roles.
+All URLs for BUK Smart Clinic System — Receptionist + Nurse roles.
 """
 
 from django.urls import path

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}Nurse Dashboard — BUK Smart Clinic{% endblock %}</title>
+<title>{% block title %}Nurse Dashboard — BUK Smart Clinic System{% endblock %}</title>
 <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -319,7 +319,7 @@ a { text-decoration: none; color: inherit; }
 
   <!-- TOP BAR -->
   <header class="topbar">
-    <span class="tb-brand">BUK Smart Clinic</span>
+    <span class="tb-brand">BUK Smart Clinic System</span>
     <nav class="tb-nav">
       <a href="{% url 'clinic:nurse_queue' %}" class="tb-nav-link {% if active_nav == 'queue' %}active{% endif %}">Dashboard</a>
       <a href="{% url 'clinic:nurse_profile' %}" class="tb-nav-link {% if active_nav == 'profile' %}active{% endif %}">Nurse Profile</a>
@@ -350,7 +350,7 @@ a { text-decoration: none; color: inherit; }
         {% endif %}
       </div>
       <div>
-        <div class="sb-brand-name">BUK Smart Clinic</div>
+        <div class="sb-brand-name">BUK Smart Clinic System</div>
         <div class="sb-brand-sub">Medical Dashboard</div>
       </div>
     </div>
