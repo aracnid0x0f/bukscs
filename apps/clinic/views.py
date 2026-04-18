@@ -732,18 +732,18 @@ def doctor_profile_view(request):
                 update_session_auth_hash(request, user)
                 password_saved = True
 
-        today = timezone.now().date()
-        ctx = _doctor_ctx(request)
-        ctx.update({
-                "active_nav": "profile",
-                "profile_saved": profile_saved,
-                "password_saved": password_saved,
-                "password_error": password_error,
-                "visits_today": Encounter.objects.filter(doctor_assigned=user, created_at__date=today).count(),
-                "visits_total": Encounter.objects.filter(doctor_assigned=user).count(),
-        })
+    today = timezone.now().date()
+    ctx = _doctor_ctx(request)
+    ctx.update({
+            "active_nav": "profile",
+            "profile_saved": profile_saved,
+            "password_saved": password_saved,
+            "password_error": password_error,
+            "visits_today": Encounter.objects.filter(doctor_assigned=user, created_at__date=today).count(),
+            "visits_total": Encounter.objects.filter(doctor_assigned=user).count(),
+    })
 
-        return render(request, "doctor/profile.html", ctx)
+    return render(request, "doctor/profile.html", ctx)
 
 
 @login_required(login_url="clinic:login")

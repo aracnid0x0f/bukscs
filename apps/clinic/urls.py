@@ -48,4 +48,5 @@ urlpatterns = [
     path("doctor/profile/", views.doctor_profile_view, name="doctor_profile"),  
     path("doctor/patients/search/", views.doctor_patient_search_view, name="doctor_patient_search"),
     path("doctor/patients/details/<int:patient_id>/", views.doctor_patient_details_view, name="doctor_patient_details"),
+    path("doctor/live-queue/", views.doctor_live_queue_partial, name="doctor_live_queue"),
 ]
