@@ -1,0 +1,173 @@
+{% extends "doctor/base.html" %}
+{% block title %}Patient History — BUK Doctor Dashboard{% endblock %}
+
+{% block content %}
+<style>
+.search-header { margin-bottom: 2rem; }
+
+.search-bar-wrap { position: relative; max-width: 580px; margin-bottom: 0.5rem; }
+.search-bar {
+  width: 100%; height: 52px;
+  background: var(--bg); box-shadow: var(--neo-inset);
+  border: none; border-radius: var(--r-xl);
+  padding: 0 4rem 0 3.5rem;
+  font-size: 0.9rem; font-family: var(--font-mono);
+  color: var(--text-1); outline: none; transition: box-shadow 0.2s;
+  letter-spacing: 0.02em;
+}
+.search-bar::placeholder { color: var(--text-3); font-family: var(--font-ui); }
+.search-bar:focus { box-shadow: var(--neo-inset), 0 0 0 3px var(--teal-glow); }
+.search-ico { position: absolute; left: 1.1rem; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.search-submit {
+  position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 3px 3px 6px rgba(26,127,122,0.3), -2px -2px 5px rgba(255,255,255,0.4);
+  border: none; cursor: pointer; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s var(--ease);
+}
+.search-submit:hover { background: var(--teal-dark); transform: translateY(-50%) scale(1.05); }
+.search-hint { font-size: 0.72rem; color: var(--text-3); }
+
+/* Results */
+.results-count {
+  font-size: 0.75rem; color: var(--text-3);
+  margin: 1.25rem 0 0.85rem;
+}
+.results-count strong { color: var(--text-1); }
+
+.patient-result {
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); padding: 1rem 1.25rem;
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 0.5rem;
+  transition: box-shadow 0.18s var(--ease);
+  animation: fadeUp 0.18s var(--ease);
+}
+.patient-result:hover { box-shadow: var(--neo-md); }
+
+.pr-ava {
+  width: 44px; height: 44px; border-radius: var(--r-md);
+  background: var(--bg); box-shadow: var(--neo-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.88rem; font-weight: 800; color: var(--teal);
+  flex-shrink: 0; overflow: hidden;
+}
+.pr-ava img { width: 100%; height: 100%; object-fit: cover; }
+.pr-body { flex: 1; min-width: 0; }
+.pr-name { font-size: 0.92rem; font-weight: 700; color: var(--text-1); }
+.pr-meta { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.2rem; flex-wrap: wrap; }
+.pr-reg  { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-3); }
+.pr-right { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.pr-visits {
+  font-size: 0.72rem; color: var(--text-3);
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-pill); padding: 0.2rem 0.65rem;
+}
+.history-link {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-pill);
+  font-size: 0.75rem; font-weight: 700; color: var(--teal);
+  transition: all 0.18s var(--ease); text-decoration: none;
+}
+.history-link:hover { box-shadow: var(--neo-md); transform: translateY(-1px); }
+
+/* Empty / initial state */
+.state-card {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 3rem 2rem;
+  max-width: 520px; text-align: center;
+}
+.state-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--bg); box-shadow: var(--neo-md); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: var(--text-3); }
+.state-title { font-size: 0.95rem; font-weight: 700; color: var(--text-1); margin-bottom: 0.3rem; }
+.state-sub   { font-size: 0.78rem; color: var(--text-2); line-height: 1.6; }
+</style>
+
+<div class="search-header">
+  <h1 class="page-title">Patient History</h1>
+  <p class="page-sub">Look up any student's full clinical record</p>
+</div>
+
+<!-- Search form -->
+<form method="GET" action="{% url 'clinic:doctor_patient_search' %}">
+  <div class="search-bar-wrap">
+    <span class="search-ico"><i data-lucide="search" style="width:17px;height:17px;"></i></span>
+    <input
+      class="search-bar"
+      type="search"
+      name="q"
+      value="{{ query }}"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="Registration number, clinic code, or student name…"
+      autofocus
+    >
+    <button type="submit" class="search-submit">
+      <i data-lucide="arrow-right" style="width:15px;height:15px;"></i>
+    </button>
+  </div>
+  <div class="search-hint">Search by BUK registration number, 6-digit clinic code, or full name</div>
+</form>
+
+<!-- Results -->
+{% if query %}
+  {% if patients %}
+    <div class="results-count">
+      Found <strong>{{ patients|length }} record{{ patients|length|pluralize }}</strong> matching "<strong>{{ query }}</strong>"
+    </div>
+
+    {% for patient in patients %}
+    <div class="patient-result">
+      <div class="pr-ava">
+        {% if patient.photo %}
+          <img src="{{ patient.photo.url }}" alt="">
+        {% else %}
+          {{ patient.initials }}
+        {% endif %}
+      </div>
+      <div class="pr-body">
+        <div class="pr-name">{{ patient.display_name }}</div>
+        <div class="pr-meta">
+          <span class="pr-reg">{{ patient.reg_number }}</span>
+          {% if patient.faculty %}<span class="badge badge-teal">{{ patient.faculty }}</span>{% endif %}
+          {% if patient.blood_group %}<span class="badge badge-teal">{{ patient.blood_group }}</span>{% endif %}
+          {% if patient.allergies %}<span class="badge badge-red"><i data-lucide="triangle-alert" style="width:8px;height:8px;"></i> Allergies</span>{% endif %}
+        </div>
+      </div>
+      <div class="pr-right">
+        <span class="pr-visits">
+          <i data-lucide="clock" style="width:11px;height:11px;vertical-align:middle;"></i>
+          {{ patient.visit_count }} visit{{ patient.visit_count|pluralize }}
+        </span>
+        <a href="{% url 'clinic:doctor_patient_details' patient.pk %}" class="history-link">
+          <i data-lucide="folder-open" style="width:13px;height:13px;"></i>
+          View History
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+
+  {% else %}
+    <div style="margin-top:1.5rem;">
+      <div class="state-card">
+        <div class="state-icon"><i data-lucide="user-x" style="width:22px;height:22px;"></i></div>
+        <div class="state-title">No records found</div>
+        <p class="state-sub">No patient matches "<strong>{{ query }}</strong>".<br>Try a different name or registration number.</p>
+      </div>
+    </div>
+  {% endif %}
+
+{% else %}
+  <div style="margin-top:1.5rem;">
+    <div class="state-card">
+      <div class="state-icon"><i data-lucide="search" style="width:22px;height:22px;"></i></div>
+      <div class="state-title">Search for a patient</div>
+      <p class="state-sub">Enter a BUK registration number, clinic code, or student name to pull up their full clinical history.</p>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

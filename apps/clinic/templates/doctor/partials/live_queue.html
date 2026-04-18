@@ -1,0 +1,53 @@
+{% for encounter in live_queue %}
+<div class="q-ticket {% if encounter.priority == 3 %}emergency{% endif %} fade-up">
+  <div class="qt-row1">
+    <span class="qt-id {% if encounter.priority == 3 %}emg{% endif %}">{{ encounter.ticket_number }}</span>
+    <span class="qt-age">{{ encounter.created_at|timesince|truncatewords:2 }} ago</span>
+  </div>
+  <div class="qt-name">{{ encounter.patient.last_name }}, {{ encounter.patient.first_name }}</div>
+  <div class="qt-row3">
+    <div style="display:flex;align-items:center;gap:0.4rem;">
+      {% if encounter.priority == 3 %}
+        <span class="qt-badge badge-critical">Emergency</span>
+      {% elif encounter.status == 'TRIAGE' %}
+        <span class="qt-badge badge-triage">Awaiting consult</span>
+      {% elif encounter.status == 'CONSULTATION' %}
+        <span class="qt-badge" style="background:var(--blue-light);color:var(--blue);">In consult</span>
+      {% elif encounter.status == 'LAB' %}
+        <span class="qt-badge" style="background:var(--amber-light);color:var(--amber);">At lab</span>
+      {% elif encounter.status == 'PHARMACY' %}
+        <span class="qt-badge badge-teal">Pharmacy</span>
+      {% elif encounter.status == 'CLOSED' %}
+        <span class="qt-badge badge-done">Done</span>
+      {% else %}
+        <span class="qt-badge badge-triage">{{ encounter.get_status_display }}</span>
+      {% endif %}
+    </div>
+    {% if encounter.status == 'TRIAGE' or encounter.status == 'EMERGENCY' %}
+      <a href="{% url 'clinic:doctor_consultation' encounter.pk %}" class="qt-action-link">
+        Attend →
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div style="padding:1.5rem 0;text-align:center;font-size:0.75rem;color:var(--text-3);">
+  <i data-lucide="inbox" style="width:22px;height:22px;display:block;margin:0 auto 0.4rem;opacity:0.35;"></i>
+  No active tickets
+</div>
+{% endfor %}
+
+<div class="queue-stats-row">
+  <div class="qs-stat">
+    <div class="qs-val">{{ queue_stats.today }}</div>
+    <div class="qs-lbl">Today</div>
+  </div>
+  <div class="qs-stat">
+    <div class="qs-val red">{{ queue_stats.critical }}</div>
+    <div class="qs-lbl">Critical</div>
+  </div>
+  <div class="qs-stat">
+    <div class="qs-val">{{ queue_stats.waiting }}</div>
+    <div class="qs-lbl">Waiting</div>
+  </div>
+</div>

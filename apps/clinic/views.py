@@ -142,6 +142,9 @@ def login_view(request):
             if user.role in ("NURSE",):
                 login(request, user)
                 return redirect("clinic:nurse_queue")
+            elif user.role == "DOCTOR":
+                login(request, user)
+                return redirect("clinic:doctor_queue")
             else:
                 login(request, user)
                 return redirect("clinic:search")
@@ -784,3 +787,11 @@ def doctor_patient_details_view(request, patient_id):
     })
 
     return render(request, "doctor/patient_details.html", ctx)
+
+@login_required(login_url="clinic:login")
+@require_GET
+def doctor_live_queue_partial(request):
+    return render(request, "doctor/partials/live_queue.html", {
+        "live_queue":  _doctor_live_queue(),
+        "queue_stats": _doctor_queue_stats(),
+    })

@@ -1,0 +1,244 @@
+{% extends "doctor/base.html" %}
+{% block title %}Consultation — BUK Doctor Dashboard{% endblock %}
+
+{% block content %}
+<style>
+.consult-eyebrow {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-pill); padding: 0.25rem 0.85rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 0.75rem;
+}
+.consult-title { font-size: 1.65rem; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+.consult-for   { font-size: 0.85rem; color: var(--text-2); margin-bottom: 2rem; }
+.consult-for strong { font-family: var(--font-mono); color: var(--teal); }
+
+.consult-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Vitals summary card — read-only, from nurse */
+.vitals-summary {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+  grid-column: span 2;
+}
+.vs-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 1rem;
+}
+.vs-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; }
+.vs-tile {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); padding: 0.75rem;
+  text-align: center;
+}
+.vs-val { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--teal); }
+.vs-lbl { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-top: 3px; }
+.vs-empty { color: var(--text-3); font-size: 0.75rem; }
+
+/* Triage note from nurse */
+.triage-note-card {
+  background: var(--teal-light); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); padding: 0.85rem 1rem;
+  font-size: 0.8rem; color: var(--teal-dark); line-height: 1.6;
+  grid-column: span 2;
+  display: flex; gap: 0.65rem; align-items: flex-start;
+}
+
+/* Consultation input fields */
+.consult-field {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+}
+.cf-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 0.85rem;
+}
+.cf-header i { color: var(--teal); }
+
+/* Routing section */
+.routing-card {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+  grid-column: span 2;
+}
+.routing-title {
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.route-options { display: flex; gap: 1rem; flex-wrap: wrap; }
+.route-r { display: none; }
+.route-r + label {
+  flex: 1; min-width: 140px;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 1rem; background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; color: var(--text-2);
+  transition: all 0.18s var(--ease); text-align: center;
+}
+.route-r + label:hover { box-shadow: var(--neo-md); color: var(--text-1); }
+.route-r + label .route-icon {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+}
+#route-lab:checked + label      { box-shadow: var(--neo-inset-sm); color: var(--amber); }
+#route-lab:checked + label .route-icon { background: var(--amber-light); box-shadow: none; }
+#route-pharmacy:checked + label { box-shadow: var(--neo-inset-sm); color: var(--teal); }
+#route-pharmacy:checked + label .route-icon { background: var(--teal-light); box-shadow: none; }
+
+/* Action bar */
+.action-bar {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 1rem; padding: 1rem 0; grid-column: span 2;
+}
+.back-btn {
+  background: transparent; border: none; font-size: 0.85rem; font-weight: 600;
+  color: var(--text-3); cursor: pointer; padding: 0.65rem 1.25rem;
+  border-radius: var(--r-pill); transition: color 0.15s;
+}
+.back-btn:hover { color: var(--text-1); }
+.submit-btn {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.85rem 2.5rem;
+  background: var(--teal); color: #fff;
+  box-shadow: 6px 6px 12px rgba(26,127,122,0.35), -3px -3px 8px rgba(255,255,255,0.2);
+  border: none; border-radius: var(--r-pill);
+  font-size: 0.92rem; font-weight: 800;
+  cursor: pointer; transition: all 0.18s var(--ease);
+}
+.submit-btn:hover { background: var(--teal-dark); transform: translateY(-1px); }
+.submit-btn:active { transform: translateY(0); }
+</style>
+
+<form method="POST" action="{% url 'clinic:doctor_consultation' encounter.pk %}">
+  {% csrf_token %}
+
+  <div class="consult-eyebrow">
+    <i data-lucide="stethoscope" style="width:11px;height:11px;"></i>
+    Consultation
+  </div>
+  <h1 class="consult-title">Patient Consultation</h1>
+  <p class="consult-for">
+    Ticket <strong>{{ encounter.ticket_number }}</strong>
+    &nbsp;·&nbsp; {{ encounter.patient.full_name }}
+    &nbsp;·&nbsp; {{ encounter.patient.reg_number }}
+    {% if encounter.patient.blood_group %}
+      &nbsp;·&nbsp; <span class="badge badge-teal">{{ encounter.patient.blood_group }}{% if encounter.patient.genotype %} / {{ encounter.patient.genotype }}{% endif %}</span>
+    {% endif %}
+  </p>
+
+  <div class="consult-grid">
+
+    <!-- Vitals summary (read-only) -->
+    <div class="vitals-summary">
+      <div class="vs-title">
+        <i data-lucide="activity" style="width:15px;height:15px;color:var(--teal);"></i>
+        Vitals captured by nurse
+      </div>
+      <div class="vs-grid">
+        <div class="vs-tile">
+          <div class="vs-val">{% if encounter.temperature %}{{ encounter.temperature }}°C{% else %}<span class="vs-empty">—</span>{% endif %}</div>
+          <div class="vs-lbl">Temperature</div>
+        </div>
+        <div class="vs-tile">
+          <div class="vs-val">{% if encounter.heart_rate %}{{ encounter.heart_rate }}<small style="font-size:0.65rem;">bpm</small>{% else %}<span class="vs-empty">—</span>{% endif %}</div>
+          <div class="vs-lbl">Heart Rate</div>
+        </div>
+        <div class="vs-tile">
+          <div class="vs-val">{% if encounter.blood_pressure %}{{ encounter.blood_pressure }}{% else %}<span class="vs-empty">—</span>{% endif %}</div>
+          <div class="vs-lbl">Blood Pressure</div>
+        </div>
+        <div class="vs-tile">
+          <div class="vs-val">{% if encounter.weight %}{{ encounter.weight }}<small style="font-size:0.65rem;">kg</small>{% else %}<span class="vs-empty">—</span>{% endif %}</div>
+          <div class="vs-lbl">Weight</div>
+        </div>
+        <div class="vs-tile">
+          <div class="vs-val">{% if encounter.spo2 %}{{ encounter.spo2 }}%{% else %}<span class="vs-empty">—</span>{% endif %}</div>
+          <div class="vs-lbl">SpO2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nurse's triage note -->
+    {% if encounter.triage_notes %}
+    <div class="triage-note-card">
+      <i data-lucide="clipboard" style="width:15px;height:15px;flex-shrink:0;margin-top:1px;"></i>
+      <div><strong>Nurse's note:</strong> {{ encounter.triage_notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Chief complaint -->
+    <div class="consult-field">
+      <div class="cf-header">
+        <i data-lucide="message-square" style="width:15px;height:15px;"></i>
+        Chief Complaint
+      </div>
+      <textarea class="neo-textarea" name="chief_complaint" placeholder="Patient's primary complaint…" rows="3">{{ encounter.chief_complaint }}</textarea>
+    </div>
+
+    <!-- Clinical notes -->
+    <div class="consult-field">
+      <div class="cf-header">
+        <i data-lucide="file-text" style="width:15px;height:15px;"></i>
+        Clinical Notes
+      </div>
+      <textarea class="neo-textarea" name="clinical_notes" placeholder="Examination findings, observations…" rows="3">{{ encounter.clinical_notes }}</textarea>
+    </div>
+
+    <!-- Diagnosis -->
+    <div class="consult-field" style="grid-column:span 2;">
+      <div class="cf-header">
+        <i data-lucide="brain" style="width:15px;height:15px;"></i>
+        Diagnosis
+      </div>
+      <textarea class="neo-textarea" name="diagnosis" placeholder="Primary and secondary diagnoses…" rows="3">{{ encounter.diagnosis }}</textarea>
+    </div>
+
+    <!-- Routing decision -->
+    <div class="routing-card">
+      <div class="routing-title">
+        <i data-lucide="git-fork" style="width:15px;height:15px;color:var(--teal);"></i>
+        Route patient to
+      </div>
+      <div class="route-options">
+        <input type="radio" name="action" id="route-lab"      value="send_to_lab">
+        <label for="route-lab">
+          <div class="route-icon">
+            <i data-lucide="microscope" style="width:18px;height:18px;color:var(--amber);"></i>
+          </div>
+          Send to Laboratory
+          <span style="font-size:0.7rem;color:var(--text-3);font-weight:400;">Requires further tests</span>
+        </label>
+
+        <input type="radio" name="action" id="route-pharmacy" value="send_to_pharmacy" checked>
+        <label for="route-pharmacy">
+          <div class="route-icon">
+            <i data-lucide="pill" style="width:18px;height:18px;color:var(--teal);"></i>
+          </div>
+          Send to Pharmacy
+          <span style="font-size:0.7rem;color:var(--text-3);font-weight:400;">Ready for medication</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-bar">
+      <a href="{% url 'clinic:doctor_queue' %}" class="back-btn">← Back to Queue</a>
+      <button type="submit" class="submit-btn">
+        Submit &amp; Route Patient
+        <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+      </button>
+    </div>
+
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,208 @@
+{% extends "doctor/base.html" %}
+{% block title %}My Profile — BUK Doctor Dashboard{% endblock %}
+
+{% block content %}
+<style>
+.profile-header-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+}
+.duty-badge {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-pill); padding: 0.45rem 1rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--green);
+}
+.duty-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.metric-card {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem; position: relative;
+}
+.mc-chip { position: absolute; top: 1rem; right: 1rem; font-size: 0.6rem; font-weight: 700; color: var(--teal); letter-spacing: 0.06em; text-transform: uppercase; }
+.mc-icon {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  background: var(--bg); box-shadow: var(--neo-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--teal); margin-bottom: 0.75rem;
+}
+.mc-label { font-size: 0.72rem; color: var(--text-2); margin-bottom: 0.25rem; }
+.mc-value { font-size: 1.75rem; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; line-height: 1; }
+.mc-star  { color: var(--amber); font-size: 1rem; }
+
+.account-panel {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.75rem; max-width: 680px;
+}
+.panel-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 1.05rem; font-weight: 800; color: var(--text-1);
+  border-left: 3px solid var(--teal); padding-left: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.field-with-icon { position: relative; }
+.fwi-ico { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.neo-input-padded {
+  width: 100%; background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border: none; border-radius: var(--r-md);
+  padding: 0.65rem 0.9rem 0.65rem 2.5rem;
+  font-size: 0.82rem; color: var(--text-1); outline: none; transition: box-shadow 0.2s;
+}
+.neo-input-padded:focus { box-shadow: var(--neo-inset), 0 0 0 2px var(--teal-glow); }
+.neo-input-padded::placeholder { color: var(--text-3); }
+.readonly-field {
+  width: 100%; background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border: none; border-radius: var(--r-md);
+  padding: 0.65rem 0.9rem 0.65rem 2.5rem;
+  font-size: 0.82rem; color: var(--text-2); opacity: 0.7; cursor: not-allowed;
+}
+.update-btn {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-left: auto; margin-top: 1.25rem;
+  padding: 0.65rem 1.75rem;
+  background: var(--bg); box-shadow: var(--neo-md);
+  border: none; border-radius: var(--r-pill);
+  font-size: 0.85rem; font-weight: 700; color: var(--teal);
+  cursor: pointer; transition: all 0.18s var(--ease);
+}
+.update-btn:hover { box-shadow: var(--neo-lg); transform: translateY(-1px); }
+.update-btn:active { box-shadow: var(--neo-inset-sm); transform: translateY(0); }
+
+.pw-panel {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.75rem;
+  max-width: 680px; margin-top: 1.25rem;
+}
+</style>
+
+<div class="profile-header-row">
+  <div>
+    <h1 class="page-title" style="color:var(--text-1);">Doctor Profile Settings</h1>
+    <p class="page-sub">Manage your clinical credentials and account security</p>
+  </div>
+  <div class="duty-badge">
+    <span class="duty-dot"></span>
+    Active Duty
+  </div>
+</div>
+
+{% if profile_saved %}
+<div class="success-banner" style="max-width:680px;">
+  <i data-lucide="check-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+  Profile updated successfully.
+</div>
+{% endif %}
+{% if password_saved %}
+<div class="success-banner" style="max-width:680px;">
+  <i data-lucide="shield-check" style="width:15px;height:15px;flex-shrink:0;"></i>
+  Password changed successfully.
+</div>
+{% endif %}
+{% if password_error %}
+<div class="error-banner" style="max-width:680px;">
+  <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
+  {{ password_error }}
+</div>
+{% endif %}
+
+<!-- Performance metrics -->
+<div class="metrics-row">
+  <div class="metric-card">
+    <span class="mc-chip">ALL TIME</span>
+    <div class="mc-icon"><i data-lucide="users" style="width:16px;height:16px;"></i></div>
+    <div class="mc-label">Total Consultations</div>
+    <div class="mc-value">{{ visits_total|default:"0" }}</div>
+  </div>
+  <div class="metric-card">
+    <span class="mc-chip">TODAY</span>
+    <div class="mc-icon"><i data-lucide="calendar-check" style="width:16px;height:16px;"></i></div>
+    <div class="mc-label">Consultations Today</div>
+    <div class="mc-value">{{ visits_today|default:"0" }}</div>
+  </div>
+  <div class="metric-card">
+    <span class="mc-chip">GOLD TIER</span>
+    <div class="mc-icon"><i data-lucide="badge-check" style="width:16px;height:16px;"></i></div>
+    <div class="mc-label">Patient Rating</div>
+    <div class="mc-value">4.9 <span class="mc-star">★</span></div>
+  </div>
+</div>
+
+<!-- Account info -->
+<div class="account-panel">
+  <div class="panel-title">Account Information</div>
+  <form method="POST" action="{% url 'clinic:doctor_profile' %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_profile">
+    <div class="form-grid-2" style="margin-bottom:1rem;">
+      <div>
+        <label class="field-lbl" for="id_first_name">First Name</label>
+        <div class="field-with-icon">
+          <span class="fwi-ico"><i data-lucide="user" style="width:14px;height:14px;"></i></span>
+          <input class="neo-input-padded" type="text" name="first_name" id="id_first_name" value="{{ request.user.first_name }}" placeholder="First name">
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl" for="id_last_name">Last Name</label>
+        <div class="field-with-icon">
+          <span class="fwi-ico"><i data-lucide="user" style="width:14px;height:14px;"></i></span>
+          <input class="neo-input-padded" type="text" name="last_name" id="id_last_name" value="{{ request.user.last_name }}" placeholder="Last name">
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl">Staff ID</label>
+        <div class="field-with-icon">
+          <span class="fwi-ico"><i data-lucide="badge" style="width:14px;height:14px;"></i></span>
+          <div class="readonly-field">{{ request.user.staff_id|default:"—" }}</div>
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl" for="id_email">Email Address</label>
+        <div class="field-with-icon">
+          <span class="fwi-ico"><i data-lucide="mail" style="width:14px;height:14px;"></i></span>
+          <input class="neo-input-padded" type="email" name="email" id="id_email" value="{{ request.user.email }}">
+        </div>
+      </div>
+      <div class="span-2">
+        <label class="field-lbl" for="id_phone">Contact Number</label>
+        <div class="field-with-icon">
+          <span class="fwi-ico"><i data-lucide="phone" style="width:14px;height:14px;"></i></span>
+          <input class="neo-input-padded" type="tel" name="phone_number" id="id_phone" value="{{ request.user.phone_number|default:'' }}" placeholder="+234 (812) 555-0192">
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="update-btn">
+      Update Profile
+      <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+    </button>
+  </form>
+</div>
+
+<!-- Password -->
+<div class="pw-panel">
+  <div class="panel-title">Password Management</div>
+  <form method="POST" action="{% url 'clinic:doctor_profile' %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="change_password">
+    <div class="form-grid-2" style="margin-bottom:1rem;">
+      <div class="span-2">
+        <label class="field-lbl" for="id_cur_pw">Current Password</label>
+        <input class="neo-input" type="password" name="current_password" id="id_cur_pw" placeholder="············">
+      </div>
+      <div>
+        <label class="field-lbl" for="id_new_pw">New Password</label>
+        <input class="neo-input" type="password" name="new_password" id="id_new_pw" placeholder="Min 8 characters">
+      </div>
+      <div>
+        <label class="field-lbl" for="id_conf_pw">Confirm New Password</label>
+        <input class="neo-input" type="password" name="confirm_password" id="id_conf_pw" placeholder="Repeat password">
+      </div>
+    </div>
+    <button type="submit" class="btn-neo" style="width:100%;justify-content:center;">
+      <i data-lucide="key-round" style="width:14px;height:14px;"></i>
+      Update Password
+    </button>
+  </form>
+</div>
+
+{% endblock %}

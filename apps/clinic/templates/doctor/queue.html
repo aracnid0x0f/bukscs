@@ -1,0 +1,161 @@
+{% extends "doctor/base.html" %}
+{% block title %}Patient Queue — BUK Doctor Dashboard{% endblock %}
+
+{% block content %}
+<style>
+.queue-header { margin-bottom: 2rem; }
+
+.patient-row {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+  display: flex; align-items: center; gap: 1.25rem;
+  margin-bottom: 0.85rem;
+  transition: box-shadow 0.2s var(--ease);
+  animation: fadeUp 0.22s var(--ease);
+}
+.patient-row:hover { box-shadow: var(--neo-lg); }
+.patient-row.priority-emergency { box-shadow: var(--neo-md), inset 0 0 0 2px rgba(192,57,43,0.3); }
+.patient-row.priority-urgent    { box-shadow: var(--neo-md), inset 0 0 0 2px rgba(217,119,6,0.3); }
+
+.pr-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden; color: var(--text-3);
+}
+.pr-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.pr-info { flex: 1; min-width: 0; }
+.pr-name { font-size: 1rem; font-weight: 700; color: var(--text-1); margin-bottom: 0.3rem; }
+.pr-reg-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-pill); padding: 0.2rem 0.65rem;
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-2);
+}
+
+/* Vitals summary — key numbers captured by nurse */
+.pr-vitals {
+  display: flex; gap: 0.6rem; flex-wrap: wrap;
+  padding: 0 1.25rem;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  border-right: 1px solid rgba(0,0,0,0.06);
+}
+.vital-chip {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-md); padding: 0.4rem 0.65rem;
+  min-width: 52px;
+}
+.vc-val { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: var(--text-1); }
+.vc-lbl { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-top: 2px; }
+
+.pr-wait {
+  display: flex; flex-direction: column; align-items: center; padding: 0 0.85rem;
+}
+.pr-wait-val { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--text-1); line-height: 1.1; }
+.pr-wait-lbl { font-size: 0.6rem; color: var(--text-3); }
+
+.consult-btn {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  background: var(--teal); color: #fff;
+  box-shadow: 4px 4px 8px rgba(26,127,122,0.3), -2px -2px 6px rgba(255,255,255,0.4);
+  border: none; border-radius: var(--r-lg);
+  font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; transition: all 0.18s var(--ease);
+  white-space: nowrap; text-decoration: none;
+}
+.consult-btn:hover { background: var(--teal-dark); transform: translateY(-1px); box-shadow: 6px 6px 12px rgba(26,127,122,0.35),-3px -3px 8px rgba(255,255,255,0.5); }
+.consult-btn:active { transform: translateY(0); }
+
+.empty-queue {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 3rem 2rem; text-align: center;
+}
+.empty-icon { width: 60px; height: 60px; border-radius: 50%; background: var(--bg); box-shadow: var(--neo-md); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: var(--text-3); }
+</style>
+
+<div class="queue-header">
+  <h1 class="page-title">Patient Queue</h1>
+  <p class="page-sub">Patients awaiting consultation — ordered by priority</p>
+</div>
+
+{% if awaiting %}
+  {% for encounter in awaiting %}
+  <div class="patient-row {% if encounter.priority == 3 %}priority-emergency{% elif encounter.priority == 2 %}priority-urgent{% endif %}">
+
+    <div class="pr-avatar">
+      {% if encounter.patient.photo %}
+        <img src="{{ encounter.patient.photo.url }}" alt="">
+      {% else %}
+        <i data-lucide="user" style="width:22px;height:22px;"></i>
+      {% endif %}
+    </div>
+
+    <div class="pr-info">
+      <div class="pr-name">
+        {{ encounter.patient.full_name }}
+        {% if encounter.priority == 3 %}
+          <span class="badge badge-red" style="margin-left:0.5rem;"><i data-lucide="siren" style="width:8px;height:8px;"></i> Emergency</span>
+        {% elif encounter.priority == 2 %}
+          <span class="badge badge-amber" style="margin-left:0.5rem;">Urgent</span>
+        {% endif %}
+      </div>
+      <div class="pr-reg-chip">
+        <i data-lucide="id-card" style="width:11px;height:11px;"></i>
+        {{ encounter.patient.reg_number }}
+      </div>
+    </div>
+
+    <!-- Vitals captured by nurse -->
+    <div class="pr-vitals">
+      {% if encounter.temperature %}
+      <div class="vital-chip">
+        <span class="vc-val">{{ encounter.temperature }}°</span>
+        <span class="vc-lbl">Temp</span>
+      </div>
+      {% endif %}
+      {% if encounter.heart_rate %}
+      <div class="vital-chip">
+        <span class="vc-val">{{ encounter.heart_rate }}</span>
+        <span class="vc-lbl">BPM</span>
+      </div>
+      {% endif %}
+      {% if encounter.blood_pressure %}
+      <div class="vital-chip">
+        <span class="vc-val">{{ encounter.blood_pressure }}</span>
+        <span class="vc-lbl">BP</span>
+      </div>
+      {% endif %}
+      {% if encounter.spo2 %}
+      <div class="vital-chip">
+        <span class="vc-val">{{ encounter.spo2 }}%</span>
+        <span class="vc-lbl">SpO2</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="pr-wait">
+      <i data-lucide="clock" style="width:13px;height:13px;color:var(--text-3);margin-bottom:2px;"></i>
+      <div class="pr-wait-val">{{ encounter.created_at|timesince|truncatewords:2 }}</div>
+      <div class="pr-wait-lbl">waiting</div>
+    </div>
+
+    <a href="{% url 'clinic:doctor_consultation' encounter.pk %}" class="consult-btn">
+      <i data-lucide="stethoscope" style="width:15px;height:15px;"></i>
+      Start Consult
+    </a>
+
+  </div>
+  {% endfor %}
+
+{% else %}
+  <div class="empty-queue fade-up">
+    <div class="empty-icon"><i data-lucide="check-circle" style="width:26px;height:26px;"></i></div>
+    <div style="font-size:1rem;font-weight:700;color:var(--text-1);margin-bottom:0.35rem;">Queue is clear</div>
+    <p style="font-size:0.78rem;color:var(--text-2);">No patients currently awaiting consultation.</p>
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,285 @@
+{% extends "doctor/base.html" %}
+{% block title %}{{ patient.full_name }} — Patient History{% endblock %}
+
+{% block content %}
+<style>
+/* Back link */
+.back-link {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-3);
+  margin-bottom: 1.5rem; transition: color 0.15s;
+}
+.back-link:hover { color: var(--teal); }
+
+/* Patient banner */
+.patient-banner {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.5rem;
+  display: flex; align-items: flex-start; gap: 1.25rem;
+  margin-bottom: 2rem; position: relative; overflow: hidden;
+}
+.patient-banner::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--teal), rgba(26,127,122,0.2));
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+}
+.pb-avatar {
+  width: 72px; height: 72px; border-radius: var(--r-lg);
+  background: var(--bg); box-shadow: var(--neo-md);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-ui); font-size: 1.4rem; font-weight: 800; color: var(--teal);
+  flex-shrink: 0; overflow: hidden;
+}
+.pb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pb-meta { flex: 1; }
+.pb-name { font-size: 1.35rem; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.35rem; }
+.pb-reg  { font-family: var(--font-mono); font-size: 0.8rem; color: var(--teal); letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+.pb-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Info grid */
+.pb-info-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem; margin-top: 1.25rem;
+}
+.pb-info-tile {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); padding: 0.65rem 0.85rem;
+}
+.pit-lbl { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 3px; }
+.pit-val { font-size: 0.82rem; font-weight: 600; color: var(--text-1); }
+.pit-val.teal { color: var(--teal); font-family: var(--font-mono); }
+.pit-val.red  { color: var(--red); }
+
+/* Allergy strip */
+.allergy-strip {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  background: var(--red-light); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); padding: 0.65rem 0.9rem;
+  font-size: 0.8rem; color: var(--red); line-height: 1.55;
+  margin-bottom: 2rem;
+}
+
+/* Timeline */
+.timeline-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.timeline-title { font-size: 0.95rem; font-weight: 800; color: var(--text-1); }
+.timeline-count {
+  font-size: 0.72rem; color: var(--text-3);
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-pill); padding: 0.2rem 0.65rem;
+}
+
+.encounter-card {
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); padding: 1.1rem 1.25rem;
+  margin-bottom: 0.65rem;
+  transition: box-shadow 0.18s;
+  animation: fadeUp 0.2s var(--ease);
+}
+.encounter-card:hover { box-shadow: var(--neo-md); }
+.encounter-card.open { box-shadow: var(--neo-md); }
+
+.ec-header { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 0.85rem; cursor: pointer; }
+.ec-ticket { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: var(--teal); }
+.ec-date   { font-size: 0.72rem; color: var(--text-3); margin-left: auto; }
+.ec-toggle { color: var(--text-3); transition: transform 0.2s; }
+.ec-toggle.open { transform: rotate(180deg); }
+
+.ec-vitals {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.85rem;
+}
+.ec-vital-chip {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-sm); padding: 0.3rem 0.6rem;
+  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500;
+  color: var(--text-2);
+  display: flex; align-items: center; gap: 0.3rem;
+}
+
+.ec-body { display: none; }
+.ec-body.open { display: block; }
+.ec-section { margin-bottom: 0.75rem; }
+.ec-section-lbl {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 0.3rem;
+}
+.ec-section-val {
+  font-size: 0.82rem; color: var(--text-1); line-height: 1.6;
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-md); padding: 0.65rem 0.85rem;
+}
+.ec-empty { font-size: 0.78rem; color: var(--text-3); font-style: italic; }
+
+.ec-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.05);
+}
+.ec-doctor { font-size: 0.72rem; color: var(--text-3); display: flex; align-items: center; gap: 0.35rem; }
+
+/* Empty history */
+.empty-history {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 3rem 2rem; text-align: center;
+}
+</style>
+
+<a href="{% url 'clinic:doctor_patient_search' %}{% if request.GET.q %}?q={{ request.GET.q }}{% endif %}" class="back-link">
+  <i data-lucide="arrow-left" style="width:14px;height:14px;"></i>
+  Back to search
+</a>
+
+<!-- Patient banner -->
+<div class="patient-banner">
+  <div class="pb-avatar">
+    {% if patient.photo %}
+      <img src="{{ patient.photo.url }}" alt="">
+    {% else %}
+      {{ patient.initials }}
+    {% endif %}
+  </div>
+  <div class="pb-meta" style="width:100%;">
+    <div class="pb-name">{{ patient.display_name }}</div>
+    <div class="pb-reg">{{ patient.reg_number }}</div>
+    <div class="pb-tags">
+      {% if patient.blood_group %}<span class="badge badge-teal">{{ patient.blood_group }}{% if patient.genotype %} / {{ patient.genotype }}{% endif %}</span>{% endif %}
+      {% if patient.level %}<span class="badge badge-blue">{{ patient.level }}L</span>{% endif %}
+      {% if patient.faculty %}<span class="badge badge-teal">{{ patient.faculty }}</span>{% endif %}
+      {% if patient.allergies %}<span class="badge badge-red"><i data-lucide="triangle-alert" style="width:8px;height:8px;"></i> Allergies</span>{% endif %}
+    </div>
+    <div class="pb-info-grid">
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Department</div>
+        <div class="pit-val">{{ patient.department|default:"—" }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Date of Birth</div>
+        <div class="pit-val">{{ patient.date_of_birth|date:"d M Y"|default:"—" }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Phone</div>
+        <div class="pit-val">{{ patient.phone_number|default:"—" }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Clinic Code</div>
+        <div class="pit-val teal">{{ patient.clinic_code }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Next of Kin</div>
+        <div class="pit-val">{{ patient.next_of_kin_name|default:"—" }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">NOK Phone</div>
+        <div class="pit-val">{{ patient.next_of_kin_phone|default:"—" }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Total Visits</div>
+        <div class="pit-val teal">{{ patient.visit_count }}</div>
+      </div>
+      <div class="pb-info-tile">
+        <div class="pit-lbl">Last Visit</div>
+        <div class="pit-val">{% if patient.last_visit %}{{ patient.last_visit.created_at|date:"d M Y" }}{% else %}First visit{% endif %}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Allergy alert -->
+{% if patient.allergies %}
+<div class="allergy-strip">
+  <i data-lucide="triangle-alert" style="width:15px;height:15px;flex-shrink:0;margin-top:1px;"></i>
+  <div><strong>Known allergies:</strong> {{ patient.allergies }}</div>
+</div>
+{% endif %}
+
+<!-- Encounter timeline -->
+<div class="timeline-header">
+  <span class="timeline-title">Clinical History</span>
+  <span class="timeline-count">{{ encounters|length }} encounter{{ encounters|length|pluralize }}</span>
+</div>
+
+{% if encounters %}
+  {% for enc in encounters %}
+  <div class="encounter-card {% if forloop.first %}open{% endif %}" id="enc-{{ enc.pk }}">
+
+    <div class="ec-header" onclick="toggleEncounter({{ enc.pk }})">
+      <span class="ec-ticket">{{ enc.ticket_number }}</span>
+      <span class="badge {% if enc.status == 'CLOSED' %}badge-green{% elif enc.status == 'LAB' %}badge-amber{% else %}badge-teal{% endif %}">
+        {{ enc.get_status_display }}
+      </span>
+      {% if enc.priority == 3 %}<span class="badge badge-red">Emergency</span>{% endif %}
+      {% if enc.priority == 2 %}<span class="badge badge-amber">Urgent</span>{% endif %}
+      <span class="ec-date">{{ enc.created_at|date:"d M Y, H:i" }}</span>
+      <i data-lucide="chevron-down" style="width:15px;height:15px;" class="ec-toggle {% if forloop.first %}open{% endif %}" id="toggle-{{ enc.pk }}"></i>
+    </div>
+
+    <!-- Vitals summary chips -->
+    {% if enc.temperature or enc.heart_rate or enc.blood_pressure or enc.weight or enc.spo2 %}
+    <div class="ec-vitals">
+      {% if enc.temperature %}<div class="ec-vital-chip"><i data-lucide="thermometer" style="width:11px;height:11px;"></i>{{ enc.temperature }}°C</div>{% endif %}
+      {% if enc.heart_rate  %}<div class="ec-vital-chip"><i data-lucide="heart-pulse" style="width:11px;height:11px;"></i>{{ enc.heart_rate }} bpm</div>{% endif %}
+      {% if enc.blood_pressure %}<div class="ec-vital-chip"><i data-lucide="gauge" style="width:11px;height:11px;"></i>{{ enc.blood_pressure }}</div>{% endif %}
+      {% if enc.weight %}<div class="ec-vital-chip"><i data-lucide="scale" style="width:11px;height:11px;"></i>{{ enc.weight }} kg</div>{% endif %}
+      {% if enc.spo2   %}<div class="ec-vital-chip"><i data-lucide="wind" style="width:11px;height:11px;"></i>{{ enc.spo2 }}%</div>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Expandable body -->
+    <div class="ec-body {% if forloop.first %}open{% endif %}" id="body-{{ enc.pk }}">
+      {% if enc.triage_notes %}
+      <div class="ec-section">
+        <div class="ec-section-lbl">Nurse's triage note</div>
+        <div class="ec-section-val">{{ enc.triage_notes }}</div>
+      </div>
+      {% endif %}
+      <div class="ec-section">
+        <div class="ec-section-lbl">Chief complaint</div>
+        <div class="ec-section-val">{% if enc.chief_complaint %}{{ enc.chief_complaint }}{% else %}<span class="ec-empty">Not recorded</span>{% endif %}</div>
+      </div>
+      <div class="ec-section">
+        <div class="ec-section-lbl">Clinical notes</div>
+        <div class="ec-section-val">{% if enc.clinical_notes %}{{ enc.clinical_notes }}{% else %}<span class="ec-empty">Not recorded</span>{% endif %}</div>
+      </div>
+      <div class="ec-section">
+        <div class="ec-section-lbl">Diagnosis</div>
+        <div class="ec-section-val">{% if enc.diagnosis %}{{ enc.diagnosis }}{% else %}<span class="ec-empty">Not recorded</span>{% endif %}</div>
+      </div>
+    </div>
+
+    <div class="ec-footer">
+      <div class="ec-doctor">
+        <i data-lucide="user" style="width:12px;height:12px;"></i>
+        {% if enc.doctor_assigned %}Dr. {{ enc.doctor_assigned.last_name }}{% else %}No doctor assigned{% endif %}
+      </div>
+      {% if enc.status == 'TRIAGE' or enc.status == 'EMERGENCY' %}
+      <a href="{% url 'clinic:doctor_consultation' enc.pk %}" class="history-link" style="font-size:0.72rem;">
+        <i data-lucide="stethoscope" style="width:12px;height:12px;"></i>
+        Open Consultation
+      </a>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+
+{% else %}
+  <div class="empty-history">
+    <div style="width:54px;height:54px;border-radius:50%;background:var(--bg);box-shadow:var(--neo-md);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:var(--text-3);">
+      <i data-lucide="folder-open" style="width:22px;height:22px;"></i>
+    </div>
+    <div style="font-size:0.95rem;font-weight:700;color:var(--text-1);margin-bottom:0.3rem;">No encounters yet</div>
+    <p style="font-size:0.78rem;color:var(--text-2);">This patient hasn't had any clinic visits recorded in the system.</p>
+  </div>
+{% endif %}
+
+<script>
+function toggleEncounter(id) {
+  const body   = document.getElementById("body-" + id);
+  const toggle = document.getElementById("toggle-" + id);
+  const isOpen = body.classList.contains("open");
+  body.classList.toggle("open", !isOpen);
+  toggle.classList.toggle("open", !isOpen);
+}
+</script>
+{% endblock %}
