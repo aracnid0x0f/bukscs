@@ -48,6 +48,7 @@ venv/
 .env
 
 # Db files
-*.db
-db.sqlite3
-*.sqlite*
+*.sqlite3
+
+# Prompts
+Prompts.md

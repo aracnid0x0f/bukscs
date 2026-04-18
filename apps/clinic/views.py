@@ -12,6 +12,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.db.models import Q
+
 
 from .models import Encounter, Patient
 from .forms import (
@@ -186,8 +188,6 @@ def patient_search_htmx(request):
 
     if len(q) < 2:
         return render(request, "clinic/partials/search_hint.html", {"query": q})
-
-    from django.db.models import Q
 
     patient = Patient.objects.filter(
         Q(reg_number__icontains=q)
@@ -427,7 +427,6 @@ def _require_nurse(request):
         return False
     return getattr(request.user, "role", "") in ("NURSE", "ADMIN")
 
-
 def _nurse_queue_stats():
     """Stats for the nurse right-pane."""
     today = timezone.now().date()
@@ -455,7 +454,6 @@ def _nurse_ctx(request):
         "live_queue": _nurse_live_queue(),
         "today": timezone.now().date(),
     }
-
 
 # ── Patient Queue (Awaiting Vitals) ───────────────────────────────────────────
 
@@ -602,3 +600,187 @@ def nurse_live_queue_partial(request):
             "queue_stats": _nurse_queue_stats(),
         },
     )
+
+
+# -- Doctor Views -------------------------------------------------------------
+
+def _doctor_queue_stats():
+    """Stats for the doctor right-pane."""
+    today = timezone.now().date()
+    return {
+        "today": Encounter.objects.filter(created_at__date=today).count(),
+        "critical": Encounter.objects.filter(priority=Encounter.Priority.EMERGENCY)
+        .exclude(status=Encounter.Status.CLOSED)
+        .count(),
+        "waiting": Encounter.objects.filter(status=Encounter.Status.TRIAGE).count(),
+    }
+
+def _doctor_live_queue():
+    """All open encounters ordered by priority DESC then arrival ASC."""
+    return (
+        Encounter.objects.select_related("patient")
+        .exclude(status__in=[Encounter.Status.CLOSED])
+        .order_by("-priority", "created_at")[:20]
+    )
+
+def _doctor_ctx(request):
+    return {
+        "queue_stats": _doctor_queue_stats(),
+        "live_queue": _doctor_live_queue(),
+        "today": timezone.now().date(),
+    }
+
+def _require_doctor(request):
+    """Return True only for Doctor or Admin roles."""
+    if not request.user.is_authenticated:
+        return False
+    return getattr(request.user, "role", "") in ("DOCTOR", "ADMIN")
+
+@login_required(login_url="clinic:login")
+def doctor_queue_view(request):
+    if not _require_doctor(request):
+        raise PermissionDenied
+    ctx = _doctor_ctx(request)
+    ctx["active_nav"] = "queue"
+    ctx["awaiting"] = (
+        Encounter.objects.select_related("patient")
+        .filter(status__in=[Encounter.Status.TRIAGE, Encounter.Status.EMERGENCY])
+        .order_by("-priority", "created_at")
+    )
+
+    return render(request, "doctor/queue.html", ctx)
+
+@login_required(login_url="clinic:login")
+def doctor_consultation_view(request, encounter_id):
+    if not _require_doctor(request):
+        raise PermissionDenied
+    
+    encounter = get_object_or_404(
+        Encounter.objects.select_related("patient"),
+        pk=encounter_id,
+        status__in=[Encounter.Status.TRIAGE, Encounter.Status.EMERGENCY]   # which statuses can the doctor open?
+    )
+
+    if request.method == "POST":
+        # 1. save the four fields from request.POST
+        encounter.chief_complaint = request.POST.get("chief_complaint", "").strip()
+        encounter.diagnosis = request.POST.get("diagnosis", "").strip()
+        encounter.clinical_notes = request.POST.get("clinical_notes", "").strip()
+        # 2. assign doctor_assigned
+        encounter.doctor_assigned = request.user # i dont know how to o this
+        # 3. read the routing decision
+        # 4. set the correct status
+        if request.POST.get("action") == "send_to_lab":
+            encounter.status = Encounter.Status.LABORATORY
+        elif request.POST.get("action") == "send_to_pharmacy":
+            encounter.status = Encounter.Status.PHARMACY
+        # 5. save the encounter
+        encounter.save()
+        # 6. redirect back to queue
+        return redirect("clinic:doctor_queue")
+
+    # GET
+    ctx = _doctor_ctx(request)
+    ctx["encounter"] = encounter
+    ctx["active_nav"] = "queue"
+    return render(request, "doctor/consultation.html", ctx)
+    
+
+@login_required(login_url="clinic:login")
+def doctor_profile_view(request):
+    if not _require_doctor(request):
+        raise PermissionDenied()
+
+    user = request.user
+    profile_saved = False
+    password_saved = False
+    password_error = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "update_profile":
+            user.first_name = request.POST.get("first_name", user.first_name).strip()
+            user.last_name = request.POST.get("last_name", user.last_name).strip()
+            user.email = request.POST.get("email", user.email).strip()
+            user.phone_number = request.POST.get(
+                "phone_number", user.phone_number
+            ).strip()
+            user.save(
+                update_fields=["first_name", "last_name", "email", "phone_number"]
+            )
+            profile_saved = True
+
+        elif action == "change_password":
+            cur = request.POST.get("current_password", "")
+            new = request.POST.get("new_password", "")
+            conf = request.POST.get("confirm_password", "")
+            if not user.check_password(cur):
+                password_error = "Current password is incorrect."
+            elif new != conf:
+                password_error = "New passwords do not match."
+            elif len(new) < 8:
+                password_error = "Password must be at least 8 characters."
+            else:
+                user.set_password(new)
+                user.save()
+                from django.contrib.auth import update_session_auth_hash
+
+                update_session_auth_hash(request, user)
+                password_saved = True
+
+        today = timezone.now().date()
+        ctx = _doctor_ctx(request)
+        ctx.update({
+                "active_nav": "profile",
+                "profile_saved": profile_saved,
+                "password_saved": password_saved,
+                "password_error": password_error,
+                "visits_today": Encounter.objects.filter(doctor_assigned=user, created_at__date=today).count(),
+                "visits_total": Encounter.objects.filter(doctor_assigned=user).count(),
+        })
+
+        return render(request, "doctor/profile.html", ctx)
+
+
+@login_required(login_url="clinic:login")
+def doctor_patient_search_view(request):
+    if not _require_doctor(request):
+        raise PermissionDenied()
+    
+    q = request.GET.get("q", "").strip()
+    patients = []
+
+    patients = Patient.objects.filter(
+        Q(reg_number__icontains=q) |
+        Q(clinic_code__iexact=q) |
+        Q(first_name__icontains=q) |
+        Q(last_name__icontains=q)
+    ).order_by("last_name")
+
+    ctx = _doctor_ctx(request)
+    ctx.update({
+        "patients": patients,
+        "query": q,
+        "active_nav": "patient",
+
+    })
+
+    return render(request, "doctor/patient_search.html", ctx)
+
+
+@login_required(login_url="clinic:login")
+def doctor_patient_details_view(request, patient_id):
+    if not _require_doctor(request):
+        raise PermissionDenied()
+
+    patient = get_object_or_404(Patient, pk=patient_id)
+    encounters = patient.encounters.order_by("-created_at")
+    ctx = _doctor_ctx(request)
+    ctx.update({
+        "active_nav": "patient",
+        "patient": patient,
+        "encounters": encounters,
+    })
+
+    return render(request, "doctor/patient_details.html", ctx)

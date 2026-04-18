@@ -41,4 +41,11 @@ urlpatterns = [
     # Nurse HTMX partials
     path("nurse/live-queue/", views.nurse_live_queue_partial, name="nurse_live_queue"),
     path("nurse/emergency/", views.emergency_mode, name="nurse_emergency"),
+
+    # ── Doctor pages ───────────────────────────────────────────────────────────
+    path("doctor/queue/", views.doctor_queue_view, name="doctor_queue"),
+    path('doctor/consult/<int:encounter_id>/', views.doctor_consultation_view, name='doctor_consultation'),  
+    path("doctor/profile/", views.doctor_profile_view, name="doctor_profile"),  
+    path("doctor/patients/search/", views.doctor_patient_search_view, name="doctor_patient_search"),
+    path("doctor/patients/details/<int:patient_id>/", views.doctor_patient_details_view, name="doctor_patient_details"),
 ]

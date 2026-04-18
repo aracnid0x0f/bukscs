@@ -286,7 +286,9 @@ a{text-decoration:none;color:inherit}
         <div class="field-group">
           <div class="field-lbl-row">
             <label class="field-lbl" for="password" style="margin-bottom:0;">Password</label>
-            <span class="pw-recovery">RECOVERY?</span>
+            <span class="pw-recovery">
+              <a href="#forgot-password" >forgot password?</a> {% comment "TODO: Implement forgot password functionality" %}{% endcomment %}
+            </span>
           </div>
           <div class="password-wrap" style="margin-top:6px;">
             <input class="neo-input" type="password" name="password" id="password"
