@@ -809,7 +809,7 @@ def add_prescription_view(request, encounter_id):
             doctor=request.user
         )
 
-        medication_name = request.POST.get("medication_name", "")
+        name = request.POST.get("name", "")
         dosage = request.POST.get("dosage", "")
         frequency = request.POST.get("frequency", "")
         duration = request.POST.get("duration", "")
@@ -818,7 +818,7 @@ def add_prescription_view(request, encounter_id):
 
         item =  PrescriptionItem.objects.create(
             prescription=prescription,
-            name=medication_name,
+            name=name,
             dosage=dosage,
             frequency=frequency,
             duration=duration,
@@ -828,7 +828,7 @@ def add_prescription_view(request, encounter_id):
         ctx = _doctor_ctx(request)
         ctx.update({
             "encounter": encounter,
-            "prescriptions": prescription.items.all(),
+            "prescriptions": item.prescription.items.all(),
         })
 
         return render(request, "doctor/partials/prescription_list.html", ctx)
@@ -839,7 +839,6 @@ def delete_prescription_view(request, item_id):
     if not _require_doctor(request):
         raise PermissionDenied()
     if request.method == "POST":
-        prescription = item.prescription
         item = get_object_or_404(PrescriptionItem, pk=item_id)
         encounter = item.prescription.encounter
         if item.prescription.doctor != request.user:
@@ -849,7 +848,7 @@ def delete_prescription_view(request, item_id):
         ctx = _doctor_ctx(request)
         ctx.update({
             "encounter": encounter,
-            "prescriptions": prescription.items.all(),
+            "prescriptions": item.prescription.items.all(),
         })
 
         return render(request, "doctor/partials/prescription_list.html", ctx)
