@@ -172,23 +172,32 @@ class Prescription(models.Model):
     class Status(models.TextChoices):
         PENDING      = "PENDING",      "Pending"
         DISPENSED    = "DISPENSED",    "Dispensed"
-        OUT_OF_STOCK = "OUT_OF_STOCK", "Out of Stock"
-
     encounter       = models.ForeignKey(Encounter, on_delete=models.PROTECT, related_name="prescriptions")
     doctor          = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="prescriptions_issued",
         limit_choices_to={"role": "DOCTOR"},
     )
-    medication_name = models.CharField(max_length=255)
-    dosage          = models.CharField(max_length=100)
-    frequency       = models.CharField(max_length=100)
-    duration        = models.CharField(max_length=50)
-    instructions    = models.TextField(blank=True)
     status          = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     issued_at       = models.DateTimeField(auto_now_add=True)
-    dispensed_at    = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.medication_name} → {self.encounter.patient.full_name}"
+        return f"{self.doctor.get_full_name()} → {self.encounter.patient.reg_number}"
 
+class PrescriptionItem(models.Model):
+    class Status(models.TextChoices):
+        PENDING      = "PENDING",      "Pending"
+        DISPENSED    = "DISPENSED",    "Dispensed"
+        OUT_OF_STOCK = "OUT_OF_STOCK", "Out of Stock"
+
+    name        = models.CharField(max_length=255)
+    dosage       = models.CharField(max_length=100)
+    frequency    = models.CharField(max_length=100)
+    duration     = models.CharField(max_length=50)
+    instructions = models.TextField(max_length=500, blank=True)
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name="items")
+    dispensed_at  = models.DateTimeField(null=True, blank=True)
+    status        = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+
+    def __str__(self):
+        return f"{self.name} for {self.prescription.encounter.patient.reg_number}"

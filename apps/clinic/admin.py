@@ -1,6 +1,15 @@
 from django.contrib import admin
-from .models import Patient, Encounter, Prescription
+from .models import Patient, Encounter, Prescription, PrescriptionItem
 
+class PrescriptionInline(admin.TabularInline):
+    model = Prescription
+    extra = 0
+    fields = ("encounter", "doctor", "status", "issued_at")
+
+class PrescriptionItemInline(admin.TabularInline):
+    model = PrescriptionItem
+    extra = 0
+    fields = ("name", "dosage", "frequency", "duration", "instructions", "status")
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -17,13 +26,6 @@ class PatientAdmin(admin.ModelAdmin):
     list_filter = ("faculty", "gender")
     readonly_fields = ("clinic_code", "created_at", "updated_at")
 
-
-class PrescriptionInline(admin.TabularInline):
-    model = Prescription
-    extra = 0
-    fields = ("medication_name", "dosage", "frequency", "duration", "status")
-
-
 @admin.register(Encounter)
 class EncounterAdmin(admin.ModelAdmin):
     list_display = (
@@ -39,8 +41,12 @@ class EncounterAdmin(admin.ModelAdmin):
     readonly_fields = ("visit_id", "ticket_number", "created_at")
     inlines = [PrescriptionInline]
 
-
 @admin.register(Prescription)
 class PrescriptionAdmin(admin.ModelAdmin):
-    list_display = ("medication_name", "encounter", "doctor", "status", "issued_at")
+    list_display = ("id", "encounter", "doctor", "status", "issued_at")
+    list_filter = ("status",)
+
+@admin.register(PrescriptionItem)
+class PrescriptionItemAdmin(admin.ModelAdmin):
+    list_display = ("name", "prescription", "status")
     list_filter = ("status",)

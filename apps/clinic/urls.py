@@ -50,5 +50,5 @@ urlpatterns = [
     path("doctor/patients/details/<int:patient_id>/", views.doctor_patient_details_view, name="doctor_patient_details"),
     path("doctor/live-queue/", views.doctor_live_queue_partial, name="doctor_live_queue"),
     path("doctor/consult/<int:encounter_id>/prescription/add/", views.add_prescription_view, name="doctor_add_prescription"),
-    path("doctor/prescription/<int:prescription_id>/delete", views.delete_prescription_view, name="doctor_delete_prescription"),
+    path("doctor/prescription/<int:item_id>/delete", views.delete_prescription_view, name="doctor_delete_prescription"),
 ]
