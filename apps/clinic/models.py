@@ -169,7 +169,6 @@ class Encounter(models.Model):
 
 
 class Prescription(models.Model):
-
     class Status(models.TextChoices):
         PENDING      = "PENDING",      "Pending"
         DISPENSED    = "DISPENSED",    "Dispensed"
@@ -192,3 +191,4 @@ class Prescription(models.Model):
 
     def __str__(self):
         return f"{self.medication_name} → {self.encounter.patient.full_name}"
+

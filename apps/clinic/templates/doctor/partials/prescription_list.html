@@ -1,0 +1,205 @@
+<style>
+.rx-section-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 1rem;
+}
+.rx-section-title i { color: var(--teal); }
+
+/* Prescription list */
+.rx-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
+
+.rx-item {
+  background: var(--bg); box-shadow: var(--neo-sm);
+  border-radius: var(--r-lg); padding: 0.9rem 1.1rem;
+  display: flex; align-items: flex-start; gap: 1rem;
+  animation: fadeUp 0.2s var(--ease);
+}
+.rx-item-icon {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  background: var(--teal-light); box-shadow: var(--neo-inset-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--teal); flex-shrink: 0;
+}
+.rx-item-body { flex: 1; min-width: 0; }
+.rx-drug-name { font-size: 0.88rem; font-weight: 700; color: var(--text-1); margin-bottom: 0.3rem; }
+.rx-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.rx-chip {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-pill); padding: 0.15rem 0.6rem;
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-2);
+}
+.rx-instructions { font-size: 0.75rem; color: var(--text-3); font-style: italic; }
+.rx-delete-btn {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-3); padding: 0.25rem;
+  border-radius: var(--r-sm); transition: all 0.15s;
+  flex-shrink: 0;
+}
+.rx-delete-btn:hover { color: var(--red); background: var(--red-light); }
+
+/* Empty state */
+.rx-empty {
+  background: var(--bg); box-shadow: var(--neo-inset-sm);
+  border-radius: var(--r-lg); padding: 1.25rem;
+  text-align: center; font-size: 0.78rem; color: var(--text-3);
+  margin-bottom: 1.25rem;
+}
+
+/* Add prescription form */
+.rx-form-card {
+  background: var(--bg); box-shadow: var(--neo-md);
+  border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
+}
+.rx-form-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-2);
+  margin-bottom: 1rem;
+}
+.rx-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+.rx-field { display: flex; flex-direction: column; gap: 4px; }
+.rx-add-btn {
+  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+  width: 100%; padding: 0.65rem;
+  background: var(--teal); color: #fff;
+  box-shadow: 4px 4px 8px rgba(26,127,122,0.3), -2px -2px 6px rgba(255,255,255,0.4);
+  border: none; border-radius: var(--r-md);
+  font-size: 0.82rem; font-weight: 700;
+  cursor: pointer; transition: all 0.18s var(--ease);
+}
+.rx-add-btn:hover { background: var(--teal-dark); transform: translateY(-1px); }
+.rx-add-btn:active { transform: translateY(0); box-shadow: var(--neo-inset-sm); }
+</style>
+
+<!-- Prescription list -->
+<div class="rx-section-title">
+  <i data-lucide="pill" style="width:15px;height:15px;"></i>
+  Prescriptions
+  {% if prescriptions %}
+    <span class="badge badge-teal" style="margin-left:0.25rem;">{{ prescriptions|length }}</span>
+  {% endif %}
+</div>
+<!-- Delete confirmation modal (hidden by default) -->
+<div id="rx-delete-modal" class="modal-bg">
+            <div class="modal-box">
+                <p id="rx-delete-msg" style="font-size:0.88rem;margin-bottom:1.25rem;"></p>
+                <div style="display:flex;gap:0.75rem;">
+                <input id="rx-delete-confirm" class="btn-neo btn-sm" type="button"
+                    style="flex:1;justify-content:center;background:var(--red);color:#fff;"
+                    onclick="confirmRxDelete()"
+                    value="Remove"
+                    >
+                <button class="btn-neo btn-sm" type="button" onclick="closeRxModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+<div class="rx-list">
+  {% if prescriptions %}
+    {% for rx in prescriptions %}
+    <div class="rx-item">
+      <div class="rx-item-icon">
+        <i data-lucide="pill" style="width:15px;height:15px;"></i>
+      </div>
+      <div class="rx-item-body">
+        <div class="rx-drug-name">{{ rx.medication_name }}</div>
+        <div class="rx-chips">
+          <span class="rx-chip">{{ rx.dosage }}</span>
+          <span class="rx-chip">{{ rx.frequency }}</span>
+          <span class="rx-chip">{{ rx.duration }}</span>
+        </div>
+        {% if rx.instructions %}
+          <div class="rx-instructions">{{ rx.instructions }}</div>
+        {% endif %}
+      </div>
+      <!-- Delete button — triggers POST via HTMX -->
+      <!-- Modal for delete confirmation -->
+      <form>
+        
+        {% csrf_token %}
+        <button
+          type="button"
+          class="btn-neo btn-sm"
+          style="color:var(--red);background:var(--red-light);flex-shrink:0;"
+          hx-post="{% url 'clinic:doctor_delete_prescription' rx.pk %}"
+          hx-target="#prescription-section"
+          hx-swap="innerHTML"
+        >
+        <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+  
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="rx-empty">
+      <i data-lucide="pill" style="width:20px;height:20px;display:block;margin:0 auto 0.4rem;opacity:0.3;"></i>
+      No prescriptions added yet
+    </div>
+  {% endif %}
+</div>
+
+<!-- Add prescription form -->
+<div class="rx-form-card">
+  <div class="rx-form-title">
+    <i data-lucide="plus-circle" style="width:14px;height:14px;color:var(--teal);"></i>
+    Add Prescription
+  </div>
+
+  <form
+    hx-post="{% url 'clinic:doctor_add_prescription' encounter.pk %}"
+    hx-target="#prescription-section"
+    hx-swap="innerHTML"
+    hx-on::after-request="this.reset()"
+  >
+    {% csrf_token %}
+    <div class="rx-form-grid">
+
+      <!-- Medication name — full width -->
+      <div class="rx-field" style="grid-column: span 3;">
+        <label class="field-lbl" for="rx-med">Medication name</label>
+        <input class="neo-input" type="text" name="medication_name" id="rx-med"
+          placeholder="e.g. Amoxicillin" required>
+      </div>
+
+      <!-- Dosage -->
+      <div class="rx-field">
+        <label class="field-lbl" for="rx-dosage">Dosage</label>
+        <input class="neo-input" type="text" name="dosage" id="rx-dosage"
+          placeholder="e.g. 500mg" required>
+      </div>
+
+      <!-- Frequency -->
+      <div class="rx-field">
+        <label class="field-lbl" for="rx-freq">Frequency</label>
+        <input class="neo-input" type="text" name="frequency" id="rx-freq"
+          placeholder="e.g. 3x daily" required>
+      </div>
+
+      <!-- Duration -->
+      <div class="rx-field">
+        <label class="field-lbl" for="rx-dur">Duration</label>
+        <input class="neo-input" type="text" name="duration" id="rx-dur"
+          placeholder="e.g. 5 days" required>
+      </div>
+
+      <!-- Instructions — full width -->
+      <div class="rx-field" style="grid-column: span 3;">
+        <label class="field-lbl" for="rx-inst">Instructions (optional)</label>
+        <input class="neo-input" type="text" name="instructions" id="rx-inst"
+          placeholder="e.g. Take after meals">
+      </div>
+
+    </div>
+
+    <button type="submit" class="rx-add-btn">
+      <i data-lucide="plus" style="width:14px;height:14px;"></i>
+      Add to Prescription
+    </button>
+  </form>
+</div>

@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from django.db.models import Q
 
 
-from .models import Encounter, Patient
+from .models import Encounter, Patient, Prescription
 from .forms import (
     PatientRegistrationForm,
     SIFUploadForm,
@@ -795,3 +795,56 @@ def doctor_live_queue_partial(request):
         "live_queue":  _doctor_live_queue(),
         "queue_stats": _doctor_queue_stats(),
     })
+
+
+@login_required(login_url="clinic:login")
+def add_prescription_view(request, encounter_id):
+    if not _require_doctor(request):
+        raise PermissionDenied()
+    
+    if request.method == "POST":
+        encounter = get_object_or_404(Encounter, pk=encounter_id)
+
+        medication_name = request.POST.get("medication_name", "")
+        dosage = request.POST.get("dosage", "")
+        frequency = request.POST.get("frequency", "")
+        duration = request.POST.get("duration", "")
+        instructions = request.POST.get("instructions", "").strip()
+
+        prescription =  Prescription.objects.create(
+            encounter=encounter,
+            doctor=request.user,
+            medication_name=medication_name,
+            dosage=dosage,
+            frequency=frequency,
+            duration=duration,
+            instructions=instructions
+        )
+
+        ctx = _doctor_ctx(request)
+        ctx.update({
+            "encounter": encounter,
+            "prescriptions": encounter.prescriptions.all(),
+        })
+
+        return render(request, "doctor/partials/prescription_list.html", ctx)
+
+
+@login_required(login_url="clinic:login")
+def delete_prescription_view(request, prescription_id):
+    if not _require_doctor(request):
+        raise PermissionDenied()
+    if request.method == "POST":
+        prescription = get_object_or_404(Prescription, pk=prescription_id)
+        encounter = prescription.encounter
+        # if prescription.doctor != request.user:
+        #     raise PermissionDenied()
+        prescription.delete()
+
+        ctx = _doctor_ctx(request)
+        ctx.update({
+            "encounter": encounter,
+            "prescriptions": encounter.prescriptions.all(),
+        })
+
+        return render(request, "doctor/partials/prescription_list.html", ctx)

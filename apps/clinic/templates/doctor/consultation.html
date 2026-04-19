@@ -202,7 +202,6 @@
       </div>
       <textarea class="neo-textarea" name="diagnosis" placeholder="Primary and secondary diagnoses…" rows="3">{{ encounter.diagnosis }}</textarea>
     </div>
-
     <!-- Routing decision -->
     <div class="routing-card">
       <div class="routing-title">
@@ -241,4 +240,36 @@
 
   </div>
 </form>
+
+<!-- Prescriptions -->
+<div id="prescription-section" style="grid-column:span 2;">
+  {% include "doctor/partials/prescription_list.html" with prescriptions=encounter.prescriptions.all %}
+</div>
+<script>
+  let pendingDeleteUrl = null
+
+  const openRxModal = ( btn, medicineName, deleteurl ) => {
+    const modal = document.getElementById("rx-delete-modal")
+    modal.classList.add("open")
+    let deleteUrl = deleteurl || btn.getAttribute("hx-post")
+    pendingDeleteUrl = deleteUrl
+  }
+
+  const closeRxModal = () => {
+    const modal = document.getElementById("rx-delete-modal")
+    modal.classList.remove("open")
+  }
+
+  const confirmRxDelete = ( ) => {
+    htmx.ajax("POST", pendingDeleteUrl, {
+      target: "#prescription-section",
+      swap: "innerHTML",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}",
+      }
+    })
+    closeRxModal()
+  }
+
+</script>
 {% endblock %}
