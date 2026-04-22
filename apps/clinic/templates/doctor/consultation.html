@@ -68,12 +68,14 @@
   background: var(--bg); box-shadow: var(--neo-md);
   border-radius: var(--r-xl); padding: 1.25rem 1.5rem;
   grid-column: span 2;
+
 }
 .routing-title {
   font-size: 0.78rem; font-weight: 700; color: var(--text-2);
   margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
 }
 .route-options { display: flex; gap: 1rem; flex-wrap: wrap; }
+
 .route-r { display: none; }
 .route-r + label {
   flex: 1; min-width: 140px;
@@ -208,38 +210,51 @@
         <i data-lucide="git-fork" style="width:15px;height:15px;color:var(--teal);"></i>
         Route patient to
       </div>
-      <div class="route-options">
-        <input type="radio" name="action" id="route-lab"      value="send_to_lab">
+      {% comment %} <div class="route-options">
+        <input type="button" name="action" id="route-lab" value="send_to_lab">
         <label for="route-lab">
           <div class="route-icon">
             <i data-lucide="microscope" style="width:18px;height:18px;color:var(--amber);"></i>
           </div>
           Send to Lab
-          <span style="font-size:0.7rem;color:var(--text-3);font-weight:400;">Requires tests</span>
-        </label>
+        </label> {% endcomment %}
 
-        <input type="radio" name="action" id="route-pharmacy" value="send_to_pharmacy" checked>
+        {% comment %} <input type="button" name="action" id="route-pharmacy" value="send_to_pharmacy" checked>
         <label for="route-pharmacy">
           <div class="route-icon">
             <i data-lucide="pill" style="width:18px;height:18px;color:var(--teal);"></i>
           </div>
           Send to Pharmacy
-          <span style="font-size:0.7rem;color:var(--text-3);font-weight:400;">Ready for medication</span>
-        </label>
-      </div>
-    </div>
+        </label> {% endcomment %}
+        <!-- Save consultation notes -->
+<div class="action-bar" style="grid-column:span 2;">
+  <a href="{% url 'clinic:doctor_queue' %}" class="back-btn">
+    ← Back to Queue
+  </a>
 
-    <!-- Actions -->
-    <div class="action-bar">
-      <a href="{% url 'clinic:doctor_queue' %}" class="back-btn">← Back to Queue</a>
-      <button type="submit" class="submit-btn">
-        Submit &amp; Route Patient
-        <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
-      </button>
-    </div>
+  <button
+    type="submit"
+    id="route-lab"
+    name="action"
+    value="send_to_lab"
+    class="btn-neo btn-lg"
+    style="color:var(--amber);"
+  >
+    <i data-lucide="microscope" style="width:16px;height:16px;"></i>
+    Send to Lab
+  </button>
 
-  </div>
-</form>
+  <button
+    type="submit"
+    id="route-pharmacy"
+    name="action"
+    value="send_to_pharmacy"
+    class="btn-neo btn-teal btn-lg"
+  >
+    <i data-lucide="pill" style="width:16px;height:16px;"></i>
+    Send to Pharmacy
+  </button>
+</div>
 
 <!-- Prescriptions -->
 <div id="prescription-section" style="grid-column:span 2;">

@@ -665,21 +665,21 @@ def doctor_consultation_view(request, encounter_id):
     )
 
     if request.method == "POST":
-        # 1. save the four fields from request.POST
         encounter.chief_complaint = request.POST.get("chief_complaint", "").strip()
         encounter.diagnosis = request.POST.get("diagnosis", "").strip()
         encounter.clinical_notes = request.POST.get("clinical_notes", "").strip()
-        # 2. assign doctor_assigned
-        encounter.doctor_assigned = request.user # i dont know how to o this
-        # 3. read the routing decision
-        # 4. set the correct status
+        encounter.doctor_assigned = request.user
         if request.POST.get("action") == "send_to_lab":
             encounter.status = Encounter.Status.LABORATORY
+            encounter.save()
+            return redirect("clinic:doctor_queue")
         elif request.POST.get("action") == "send_to_pharmacy":
+            prescription = encounter.prescriptions.first()
+            if prescription:
+                prescription.status = Prescription.Status.PENDING
+                prescription.save()
             encounter.status = Encounter.Status.PHARMACY
-        # 5. save the encounter
         encounter.save()
-        # 6. redirect back to queue
         return redirect("clinic:doctor_queue")
 
     # GET
