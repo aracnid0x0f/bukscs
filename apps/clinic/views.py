@@ -24,9 +24,6 @@ from .forms import (
 )
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-
 def _require_receptionist(request):
     """Raise PermissionDenied if the logged-in user is not a receptionist."""
     if not request.user.is_authenticated:
@@ -34,8 +31,7 @@ def _require_receptionist(request):
     role = getattr(request.user, "role", "")
     return role in ("RECEPTIONIST", "ADMIN")
 
-
-def _queue_stats():
+def _receptionist_queue_stats():
     today = timezone.now().date()
     return {
         "waiting_nurse": Encounter.objects.filter(
@@ -56,8 +52,7 @@ def _queue_stats():
         ).count(),
     }
 
-
-def _recent_encounters():
+def _receptionist_recent_encounters():
     today = timezone.now().date()
     return (
         Encounter.objects.select_related("patient")
@@ -65,7 +60,6 @@ def _recent_encounters():
         .exclude(status=Encounter.Status.CLOSED)
         .order_by("-priority", "created_at")[:15]
     )
-
 
 def _extract_sif_fields(document_file):
     """
@@ -118,10 +112,6 @@ def _extract_sif_fields(document_file):
 
     return prefill
 
-
-# ─── Auth ─────────────────────────────────────────────────────────────────────
-
-
 def login_view(request):
     error = None
     if request.method == "POST":
@@ -152,26 +142,17 @@ def login_view(request):
         error = "Invalid staff ID or password. Please try again."
     return render(request, "login.html", {"error": error})
 
-
 def logout_view(request):
     logout(request)
     return redirect("clinic:login")
 
-
-# ─── Dashboard shell guard ─────────────────────────────────────────────────────
-
-
 def _ctx(request):
     """Base context injected into every receptionist view."""
     return {
-        "queue_stats": _queue_stats(),
-        "recent_encounters": _recent_encounters(),
+        "queue_stats": _receptionist_queue_stats(),
+        "recent_encounters": _receptionist_recent_encounters(),
         "today": timezone.now().date(),
     }
-
-
-# ─── Search / Check-in ────────────────────────────────────────────────────────
-
 
 @login_required(login_url="clinic:login")
 def search_view(request):
@@ -414,7 +395,7 @@ def recent_checkins_partial(request):
         request,
         "clinic/partials/recent_checkins.html",
         {
-            "recent_encounters": _recent_encounters(),
+            "recent_encounters": _receptionist_recent_encounters(),
         },
     )
 
@@ -852,3 +833,50 @@ def delete_prescription_view(request, item_id):
         })
 
         return render(request, "doctor/partials/prescription_list.html", ctx)
+
+
+# -- Pharmacist Views -------------------------------------------------------------
+
+def _pharmacist_queue_stats():
+    today = timezone.now().today()
+
+    return {
+        "today": Encounter.objects.filter(create_add__date=today).count(),
+        "critical": Encounter.objects.filter(status=Encounter.Priority.EMERGENCY)
+            .exclude(status__in=Encounter.Status.CLOSED)
+            .count(),
+        "waiting": Encounter.objects.filter(status=Encounter.Status.PHARMACY).count()
+    }
+
+def _pharmacist_live_queue():
+    return {
+        Encounter.objects.select_related("prescriptions")
+            .filter(status=(Prescription.Status.PENDING))
+            .exclude(status__in=Prescription.Status.DISPENSED)
+            .order_by("-priority", "created_at")
+    }
+
+def _require_pharmacist(request):
+    if not request.user.is_authenticated:
+        return False
+    return getattr(request.user, "role", "") in "PHARMACIST" or "ADMIN"
+
+def _pharmacist_context(request):
+    return {
+        "queue_stats": _pharmacist_queue_stats,
+        "live_queue": _pharmacist_live_queue,
+        "today": timezone.now().today()
+
+    }
+
+@login_required(login_url="clinic:pharmacist")
+def pharmacist_queue_view(request):
+    pass
+
+@login_required(login_url="clinic:pharmacist")
+def pharmacist_prescription_dispence_view(request, prescription_id):
+    pass
+
+@login_required(login_url="clinic:pharmacist")
+def pharmacist_profile_view(request):
+    pass

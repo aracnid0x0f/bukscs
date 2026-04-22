@@ -51,4 +51,10 @@ urlpatterns = [
     path("doctor/live-queue/", views.doctor_live_queue_partial, name="doctor_live_queue"),
     path("doctor/consult/<int:encounter_id>/prescription/add/", views.add_prescription_view, name="doctor_add_prescription"),
     path("doctor/prescription/<int:item_id>/delete", views.delete_prescription_view, name="doctor_delete_prescription"),
+
+    # ── Pharmacist pages ───────────────────────────────────────────────────────────
+    path("pharmacist/", views.pharmacist_queue_view, name="pharmacist_queue"),
+    path("pharmacist/dispence/<int:prescription_id>", views.pharmacist_prescription_dispence_view, name="pharmacist_prescription_dispense"),
+    path("pharmacist/profile/", views.pharmacist_profile_view, name="pharmacist_profile"),
+
 ]
